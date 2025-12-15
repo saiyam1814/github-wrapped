@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const GITHUB_GRAPHQL_API = "https://api.github.com/graphql";
 const CURRENT_YEAR = 2025;
 
-// Super minimal GraphQL query to avoid resource limits
+// GraphQL query with commit contributions by repository
 const DEVELOPER_QUERY = `
 query DeveloperWrapped($login: String!, $from: DateTime!, $to: DateTime!) {
   user(login: $login) {
@@ -20,6 +20,38 @@ query DeveloperWrapped($login: String!, $from: DateTime!, $to: DateTime!) {
       totalIssueContributions
       totalPullRequestReviewContributions
       totalRepositoriesWithContributedCommits
+      
+      commitContributionsByRepository(maxRepositories: 10) {
+        repository {
+          name
+          nameWithOwner
+          owner { login }
+          isPrivate
+        }
+        contributions {
+          totalCount
+        }
+      }
+      
+      pullRequestContributionsByRepository(maxRepositories: 10) {
+        repository {
+          name
+          nameWithOwner
+        }
+        contributions {
+          totalCount
+        }
+      }
+      
+      issueContributionsByRepository(maxRepositories: 10) {
+        repository {
+          name
+          nameWithOwner
+        }
+        contributions {
+          totalCount
+        }
+      }
       
       contributionCalendar {
         totalContributions
@@ -190,6 +222,90 @@ function processUserData(user: any, languageData: any, year: number) {
   const activeDays = allDays.filter(d => d.contributionCount > 0).length;
   const reposContributedTo = contrib.totalRepositoriesWithContributedCommits || 0;
 
+  // Find ACTUAL most contributed repository by combining commits, PRs, and issues
+  const repoContribMap = new Map<string, {
+    name: string;
+    nameWithOwner: string;
+    commits: number;
+    prs: number;
+    issues: number;
+    isOwn: boolean;
+  }>();
+
+  // Add commit contributions
+  const commitContribs = contrib.commitContributionsByRepository || [];
+  commitContribs.forEach((item: any) => {
+    const key = item.repository.nameWithOwner;
+    const isOwn = item.repository.owner?.login === user.login;
+    const existing = repoContribMap.get(key) || {
+      name: item.repository.name,
+      nameWithOwner: key,
+      commits: 0,
+      prs: 0,
+      issues: 0,
+      isOwn,
+    };
+    existing.commits += item.contributions.totalCount;
+    repoContribMap.set(key, existing);
+  });
+
+  // Add PR contributions
+  const prContribs = contrib.pullRequestContributionsByRepository || [];
+  prContribs.forEach((item: any) => {
+    const key = item.repository.nameWithOwner;
+    const existing = repoContribMap.get(key) || {
+      name: item.repository.name,
+      nameWithOwner: key,
+      commits: 0,
+      prs: 0,
+      issues: 0,
+      isOwn: false,
+    };
+    existing.prs += item.contributions.totalCount;
+    repoContribMap.set(key, existing);
+  });
+
+  // Add issue contributions
+  const issueContribs = contrib.issueContributionsByRepository || [];
+  issueContribs.forEach((item: any) => {
+    const key = item.repository.nameWithOwner;
+    const existing = repoContribMap.get(key) || {
+      name: item.repository.name,
+      nameWithOwner: key,
+      commits: 0,
+      prs: 0,
+      issues: 0,
+      isOwn: false,
+    };
+    existing.issues += item.contributions.totalCount;
+    repoContribMap.set(key, existing);
+  });
+
+  // Find the repo with most total contributions
+  let mostContributedRepo = null;
+  let maxContribs = 0;
+  
+  repoContribMap.forEach((repo) => {
+    const total = repo.commits + repo.prs + repo.issues;
+    if (total > maxContribs) {
+      maxContribs = total;
+      mostContributedRepo = {
+        ...repo,
+        total,
+      };
+    }
+  });
+
+  // Calculate OSS contributions (contributions to repos NOT owned by user)
+  let ossRepoCount = 0;
+  let ossTotalContribs = 0;
+  repoContribMap.forEach((repo) => {
+    if (!repo.isOwn) {
+      ossRepoCount++;
+      ossTotalContribs += repo.commits + repo.prs + repo.issues;
+    }
+  });
+
   // Determine personality
   const personality = classifyPersonality({
     streak: longestStreak,
@@ -255,18 +371,10 @@ function processUserData(user: any, languageData: any, year: number) {
         stars: topRepo.stargazerCount,
         description: topRepo.description,
       } : undefined,
-      mostContributedRepo: topRepo ? {
-        name: topRepo.name,
-        nameWithOwner: topRepo.nameWithOwner,
-        commits: 0,
-        prs: 0,
-        issues: 0,
-        total: 0,
-        isOwn: true,
-      } : undefined,
+      mostContributedRepo: mostContributedRepo || undefined,
       ossContributions: {
-        repoCount: 0,
-        totalContributions: 0,
+        repoCount: ossRepoCount,
+        totalContributions: ossTotalContribs,
         prsToPopularRepos: 0,
       },
     },

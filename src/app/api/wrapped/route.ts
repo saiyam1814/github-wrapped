@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const GITHUB_GRAPHQL_API = "https://api.github.com/graphql";
-const GITHUB_REST_API = "https://api.github.com";
 const CURRENT_YEAR = 2025;
 
+// Simplified query to avoid resource limits
 const DEVELOPER_QUERY = `
 query DeveloperWrapped($login: String!, $from: DateTime!, $to: DateTime!) {
   user(login: $login) {
@@ -33,37 +33,19 @@ query DeveloperWrapped($login: String!, $from: DateTime!, $to: DateTime!) {
         }
       }
       
-      commitContributionsByRepository(maxRepositories: 100) {
+      commitContributionsByRepository(maxRepositories: 30) {
         repository {
           name
           nameWithOwner
-          isPrivate
           primaryLanguage { name color }
           stargazerCount
           owner { login }
         }
         contributions { totalCount }
       }
-      
-      pullRequestContributionsByRepository(maxRepositories: 50) {
-        repository {
-          name
-          nameWithOwner
-          stargazerCount
-        }
-        contributions { totalCount }
-      }
-      
-      issueContributionsByRepository(maxRepositories: 50) {
-        repository {
-          name
-          nameWithOwner
-        }
-        contributions { totalCount }
-      }
     }
     
-    repositories(first: 100, ownerAffiliations: OWNER, orderBy: { field: STARGAZERS, direction: DESC }) {
+    repositories(first: 30, ownerAffiliations: OWNER, orderBy: { field: STARGAZERS, direction: DESC }) {
       totalCount
       nodes {
         name
@@ -71,25 +53,13 @@ query DeveloperWrapped($login: String!, $from: DateTime!, $to: DateTime!) {
         description
         stargazerCount
         forkCount
-        isPrivate
         primaryLanguage { name color }
-        languages(first: 10, orderBy: { field: SIZE, direction: DESC }) {
+        languages(first: 5, orderBy: { field: SIZE, direction: DESC }) {
           edges {
             size
             node { name color }
           }
           totalSize
-        }
-      }
-    }
-    
-    pullRequests(first: 100, states: [MERGED], orderBy: { field: CREATED_AT, direction: DESC }) {
-      totalCount
-      nodes {
-        createdAt
-        repository {
-          nameWithOwner
-          stargazerCount
         }
       }
     }
@@ -110,7 +80,12 @@ async function graphql(query: string, variables: Record<string, any>, token: str
   const data = await response.json();
   
   if (data.errors) {
-    throw new Error(data.errors[0]?.message || "GraphQL query failed");
+    const errorMsg = data.errors[0]?.message || "GraphQL query failed";
+    // Check for specific error types
+    if (errorMsg.includes("Resource") || errorMsg.includes("limit") || errorMsg.includes("timeout")) {
+      throw new Error("GitHub API resource limits exceeded. The user may have too many contributions. Please try again later.");
+    }
+    throw new Error(errorMsg);
   }
   
   return data.data;
@@ -124,19 +99,6 @@ function processUserData(user: any, year: number) {
   const allDays: any[] = [];
   const weekdayDist: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
   const monthlyDist: Record<string, number> = {};
-  const hourlyDist: Record<number, number> = {};
-  
-  for (let i = 0; i < 24; i++) hourlyDist[i] = 0;
-  // Simulate hourly distribution based on total contributions
-  const baseHour = 14; // Assume afternoon peak
-  hourlyDist[baseHour] = Math.floor(calendar.totalContributions * 0.15);
-  hourlyDist[baseHour - 1] = Math.floor(calendar.totalContributions * 0.12);
-  hourlyDist[baseHour + 1] = Math.floor(calendar.totalContributions * 0.12);
-  hourlyDist[10] = Math.floor(calendar.totalContributions * 0.10);
-  hourlyDist[11] = Math.floor(calendar.totalContributions * 0.08);
-  hourlyDist[16] = Math.floor(calendar.totalContributions * 0.08);
-  hourlyDist[21] = Math.floor(calendar.totalContributions * 0.06);
-  hourlyDist[22] = Math.floor(calendar.totalContributions * 0.05);
   
   calendar.weeks.forEach((week: any) => {
     week.contributionDays.forEach((day: any) => {
@@ -151,20 +113,11 @@ function processUserData(user: any, year: number) {
   let longestStreak = 0;
   let currentStreak = 0;
   let tempStreak = 0;
-  let streakStartDate = "";
-  let longestStreakStart = "";
-  let longestStreakEnd = "";
-  let tempStreakStart = "";
   
-  allDays.forEach((day, idx) => {
+  allDays.forEach((day) => {
     if (day.contributionCount > 0) {
-      if (tempStreak === 0) tempStreakStart = day.date;
       tempStreak++;
-      if (tempStreak > longestStreak) {
-        longestStreak = tempStreak;
-        longestStreakStart = tempStreakStart;
-        longestStreakEnd = day.date;
-      }
+      longestStreak = Math.max(longestStreak, tempStreak);
     } else {
       tempStreak = 0;
     }
@@ -199,18 +152,8 @@ function processUserData(user: any, year: number) {
       peakMonth = month;
     }
   });
-  
-  // Find busiest hour
-  let busiestHour = 14;
-  let busiestHourCount = 0;
-  Object.entries(hourlyDist).forEach(([hour, count]) => {
-    if (count > busiestHourCount) {
-      busiestHourCount = count;
-      busiestHour = parseInt(hour);
-    }
-  });
 
-  // Process languages
+  // Process languages from repositories
   const langMap = new Map<string, { size: number; color: string; repoCount: number }>();
   user.repositories.nodes.forEach((repo: any) => {
     repo.languages?.edges?.forEach((edge: any) => {
@@ -239,50 +182,26 @@ function processUserData(user: any, year: number) {
   const isSpecialist = topLang && parseFloat(topLang.percentage) > 70;
 
   // Calculate impact
-  const totalStars = user.repositories.nodes.reduce((sum: number, r: any) => sum + r.stargazerCount, 0);
-  const totalForks = user.repositories.nodes.reduce((sum: number, r: any) => sum + r.forkCount, 0);
+  const totalStars = user.repositories.nodes.reduce((sum: number, r: any) => sum + (r.stargazerCount || 0), 0);
+  const totalForks = user.repositories.nodes.reduce((sum: number, r: any) => sum + (r.forkCount || 0), 0);
   const topRepo = user.repositories.nodes[0];
 
   // Calculate activity stats
   const activeDays = allDays.filter(d => d.contributionCount > 0).length;
-  const totalDays = allDays.length;
   
   // Find most contributed repository
-  const repoContribMap = new Map<string, { name: string; nameWithOwner: string; commits: number; prs: number; issues: number; total: number; isOwn: boolean; stars: number }>();
+  const repoContribMap = new Map<string, { name: string; nameWithOwner: string; commits: number; total: number; isOwn: boolean; stars: number }>();
   
   contrib.commitContributionsByRepository.forEach((item: any) => {
     const key = item.repository.nameWithOwner;
-    const existing = repoContribMap.get(key) || { 
+    repoContribMap.set(key, { 
       name: item.repository.name, 
       nameWithOwner: key, 
-      commits: 0, 
-      prs: 0, 
-      issues: 0, 
-      total: 0,
+      commits: item.contributions.totalCount,
+      total: item.contributions.totalCount,
       isOwn: item.repository.owner.login === user.login,
-      stars: item.repository.stargazerCount
-    };
-    existing.commits += item.contributions.totalCount;
-    existing.total += item.contributions.totalCount;
-    repoContribMap.set(key, existing);
-  });
-  
-  contrib.pullRequestContributionsByRepository?.forEach((item: any) => {
-    const key = item.repository.nameWithOwner;
-    const existing = repoContribMap.get(key);
-    if (existing) {
-      existing.prs += item.contributions.totalCount;
-      existing.total += item.contributions.totalCount;
-    }
-  });
-  
-  contrib.issueContributionsByRepository?.forEach((item: any) => {
-    const key = item.repository.nameWithOwner;
-    const existing = repoContribMap.get(key);
-    if (existing) {
-      existing.issues += item.contributions.totalCount;
-      existing.total += item.contributions.totalCount;
-    }
+      stars: item.repository.stargazerCount || 0
+    });
   });
   
   const sortedRepos = Array.from(repoContribMap.values()).sort((a, b) => b.total - a.total);
@@ -292,15 +211,8 @@ function processUserData(user: any, year: number) {
   // Count OSS contributions (repos not owned by user)
   const ossContributions = sortedRepos.filter(r => !r.isOwn);
   const ossRepoCount = ossContributions.length;
-  const totalOssContribs = ossContributions.reduce((sum, r) => sum + r.total, 0);
-  
-  // Count PRs merged to popular repos (>100 stars, not owned)
-  const prsToPopularRepos = user.pullRequests.nodes.filter((pr: any) => {
-    const createdYear = new Date(pr.createdAt).getFullYear();
-    return createdYear === year && pr.repository.stargazerCount > 100;
-  }).length;
 
-  // Determine personality with cooler names
+  // Determine personality
   const personality = classifyPersonality({
     streak: longestStreak,
     commits: contrib.totalCommitContributions,
@@ -313,10 +225,8 @@ function processUserData(user: any, year: number) {
     stars: totalStars,
     reposContributed: reposContributedTo,
     ossRepoCount,
-    prsToPopularRepos,
     activeDays,
     totalContribs: calendar.totalContributions,
-    accountAge: new Date().getFullYear() - new Date(user.createdAt).getFullYear(),
   });
 
   return {
@@ -329,7 +239,6 @@ function processUserData(user: any, year: number) {
       bio: user.bio,
       followers: user.followers.totalCount,
       following: user.following.totalCount,
-      createdAt: user.createdAt,
     },
     contributions: {
       total: calendar.totalContributions,
@@ -341,19 +250,16 @@ function processUserData(user: any, year: number) {
     },
     activity: {
       longestStreak,
-      longestStreakStart,
-      longestStreakEnd,
       currentStreak,
       busiestDay: dayNames[busiestDayIdx],
       busiestDayCount,
-      busiestHour,
+      busiestHour: 14, // Default assumption
       peakMonth,
       peakMonthCount,
       totalActiveDays: activeDays,
-      totalDays,
+      totalDays: allDays.length,
       averagePerDay: activeDays > 0 ? (calendar.totalContributions / activeDays).toFixed(1) : "0",
       weekdayDistribution: weekdayDist,
-      monthlyDistribution: monthlyDist,
     },
     languages: {
       all: languages,
@@ -376,15 +282,15 @@ function processUserData(user: any, year: number) {
         name: mostContributedRepo.name,
         nameWithOwner: mostContributedRepo.nameWithOwner,
         commits: mostContributedRepo.commits,
-        prs: mostContributedRepo.prs,
-        issues: mostContributedRepo.issues,
+        prs: 0,
+        issues: 0,
         total: mostContributedRepo.total,
         isOwn: mostContributedRepo.isOwn,
       } : undefined,
       ossContributions: {
         repoCount: ossRepoCount,
-        totalContributions: totalOssContribs,
-        prsToPopularRepos,
+        totalContributions: ossContributions.reduce((sum, r) => sum + r.total, 0),
+        prsToPopularRepos: 0,
       },
     },
     personality,
@@ -403,22 +309,18 @@ interface PersonalityInput {
   stars: number;
   reposContributed: number;
   ossRepoCount: number;
-  prsToPopularRepos: number;
   activeDays: number;
   totalContribs: number;
-  accountAge: number;
 }
 
 function classifyPersonality(input: PersonalityInput) {
-  const { streak, commits, prs, reviews, issues, isPolyglot, isSpecialist, topLang, stars, reposContributed, ossRepoCount, prsToPopularRepos, activeDays, totalContribs, accountAge } = input;
+  const { streak, commits, prs, reviews, issues, isPolyglot, isSpecialist, topLang, stars, reposContributed, ossRepoCount, activeDays } = input;
   
   const traits: any[] = [];
   let archetype = "craftsman";
-  let score = 0;
   
   // Scoring system for different archetypes
   const archetypeScores: Record<string, number> = {
-    "night-owl": 0,
     "streak-demon": 0,
     "code-ninja": 0,
     "open-source-warrior": 0,
@@ -484,7 +386,7 @@ function classifyPersonality(input: PersonalityInput) {
   }
   
   // OSS contributions
-  if (ossRepoCount >= 20 || prsToPopularRepos >= 10) {
+  if (ossRepoCount >= 20) {
     archetypeScores["open-source-warrior"] += 90;
     traits.push({ name: "OSS Warrior", description: `${ossRepoCount} repos`, score: 92, icon: "⚔️" });
   } else if (ossRepoCount >= 5) {
@@ -621,46 +523,31 @@ function generateBadges(input: PersonalityInput) {
   const { streak, commits, prs, reviews, stars, ossRepoCount, reposContributed, activeDays } = input;
   const badges: string[] = [];
   
-  // Streak badges
-  if (streak >= 365) badges.push("🏆 Year-Round Champion");
-  else if (streak >= 100) badges.push("👹 Streak Demon");
+  if (streak >= 100) badges.push("👹 Streak Demon");
   else if (streak >= 50) badges.push("🔥 Streak Master");
   else if (streak >= 30) badges.push("⚡ Month Warrior");
   else if (streak >= 7) badges.push("📅 Week Starter");
   
-  // Commit badges
-  if (commits >= 5000) badges.push("🦸 Commit Superhero");
-  else if (commits >= 2000) badges.push("🚀 Legendary Shipper");
+  if (commits >= 2000) badges.push("🚀 Legendary Shipper");
   else if (commits >= 1000) badges.push("💎 Diamond Committer");
   else if (commits >= 500) badges.push("🏅 Commit Champion");
   else if (commits >= 100) badges.push("💪 Centurion");
   
-  // Stars
   if (stars >= 10000) badges.push("🌟 Superstar");
   else if (stars >= 1000) badges.push("⭐ Star Collector");
   else if (stars >= 100) badges.push("✨ Rising Star");
   
-  // Reviews
   if (reviews >= 100) badges.push("🧘 Review Sensei");
   else if (reviews >= 50) badges.push("👁️ Eagle Eye");
-  else if (reviews >= 20) badges.push("🔍 Code Inspector");
   
-  // OSS
-  if (ossRepoCount >= 20) badges.push("⚔️ OSS Warrior");
-  else if (ossRepoCount >= 10) badges.push("🌐 OSS Champion");
-  else if (ossRepoCount >= 5) badges.push("🤝 OSS Friend");
+  if (ossRepoCount >= 10) badges.push("⚔️ OSS Warrior");
+  else if (ossRepoCount >= 5) badges.push("🌐 OSS Champion");
   
-  // PRs
   if (prs >= 100) badges.push("🎯 PR Master");
-  else if (prs >= 50) badges.push("📤 PR Machine");
   
-  // Activity
   if (activeDays >= 300) badges.push("📆 All-Year Coder");
-  else if (activeDays >= 200) badges.push("🗓️ Dedicated Dev");
   
-  // Diversity
-  if (reposContributed >= 50) badges.push("🦘 Repo Explorer");
-  else if (reposContributed >= 20) badges.push("🗺️ Code Adventurer");
+  if (reposContributed >= 30) badges.push("🦘 Repo Explorer");
   
   return badges.slice(0, 6);
 }
@@ -673,7 +560,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Username is required" }, { status: 400 });
   }
 
-  // Use server-side token from environment variable
   const token = process.env.GITHUB_TOKEN;
   
   if (!token) {

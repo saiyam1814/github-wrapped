@@ -2,22 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Twitter, RotateCcw, Star, GitFork, Users, Package, Images } from "lucide-react";
+import { Download, Twitter, RotateCcw, Star, GitFork, Users, Package, Images, Loader2 } from "lucide-react";
 import type { ProjectData } from "../page";
 import Link from "next/link";
-
-// Import dynamically to avoid SSR issues
-let confetti: any = null;
-let html2canvas: any = null;
-
-if (typeof window !== "undefined") {
-  import("canvas-confetti").then((mod) => {
-    confetti = mod.default;
-  });
-  import("html2canvas").then((mod) => {
-    html2canvas = mod.default;
-  });
-}
+import html2canvas from "html2canvas";
+import confetti from "canvas-confetti";
 
 interface Props {
   data: ProjectData;
@@ -45,8 +34,6 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
   const personalityEmoji = personality?.emoji || "🌱";
 
   useEffect(() => {
-    if (!confetti) return;
-
     const duration = 4000;
     const animationEnd = Date.now() + duration;
     const colors = ["#10b981", "#06b6d4", "#14b8a6", "#22d3ee", "#fbbf24"];
@@ -69,7 +56,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
   }, []);
 
   const handleDownload = async () => {
-    if (!cardRef.current || downloading || !html2canvas) return;
+    if (!cardRef.current || downloading) return;
 
     setDownloading(true);
     try {
@@ -78,27 +65,33 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         scale: 3,
         logging: false,
         useCORS: true,
+        allowTaint: true,
       });
 
       const link = document.createElement("a");
       link.download = `github-wrapped-2025-${repoOwner}-${repoName}.png`;
       link.href = canvas.toDataURL("image/png");
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (e) {
       console.error("Export failed:", e);
+      alert("Download failed. Please try again.");
     } finally {
       setDownloading(false);
     }
   };
 
   const handleDownloadAllSlides = async () => {
-    if (downloadingAll || !html2canvas || !onNavigateToSlide) return;
+    if (downloadingAll || !onNavigateToSlide) {
+      console.log("Cannot download: downloadingAll=", downloadingAll, "onNavigateToSlide=", !!onNavigateToSlide);
+      return;
+    }
     
     setDownloadingAll(true);
     setDownloadProgress(0);
     
     try {
-      // Capture each slide
       for (let i = 0; i < totalSlides; i++) {
         setDownloadProgress(Math.round(((i + 1) / totalSlides) * 100));
         
@@ -106,12 +99,12 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         onNavigateToSlide(i);
         
         // Wait for animation to complete
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 1200));
         
         // Find the slide content area
         const slideContent = document.querySelector('[data-slide-content]');
         if (!slideContent) {
-          console.log("Slide content not found");
+          console.log("Slide content not found for slide", i);
           continue;
         }
         
@@ -121,13 +114,16 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
           scale: 2,
           logging: false,
           useCORS: true,
+          allowTaint: true,
         });
         
         // Download
         const link = document.createElement("a");
         link.download = `github-wrapped-2025-${repoOwner}-${repoName}-slide-${i + 1}.png`;
         link.href = canvas.toDataURL("image/png");
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
         
         // Small delay between downloads
         await new Promise(r => setTimeout(r, 500));
@@ -138,6 +134,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
       
     } catch (e) {
       console.error("Export failed:", e);
+      alert("Download failed. Please try again.");
     } finally {
       setDownloadingAll(false);
       setDownloadProgress(0);
@@ -251,7 +248,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold hover:shadow-lg hover:shadow-emerald-500/20 transition-all disabled:opacity-50 text-sm"
         >
           {downloading ? (
-            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Download className="w-4 h-4" />
           )}
@@ -265,7 +262,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         >
           {downloadingAll ? (
             <>
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               <span>{downloadProgress}%</span>
             </>
           ) : (

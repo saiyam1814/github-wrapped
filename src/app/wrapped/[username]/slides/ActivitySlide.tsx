@@ -10,13 +10,16 @@ interface Props {
 }
 
 export default function ActivitySlide({ data }: Props) {
-  const { activity } = data;
+  const activity = data?.activity || {};
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  const maxVal = Math.max(...Object.values(activity.weekdayDistribution));
+  
+  // Safe access to weekdayDistribution
+  const weekdayDist = activity.weekdayDistribution || {};
+  const values = Object.values(weekdayDist);
+  const maxVal = values.length > 0 ? Math.max(...values.map(v => Number(v) || 0)) : 0;
 
   const getTimeMessage = () => {
-    const hour = activity.busiestHour;
+    const hour = activity.busiestHour || 12;
     if (hour >= 5 && hour < 12) return "You're an early bird 🐦";
     if (hour >= 12 && hour < 17) return "Afternoon is your prime time ☀️";
     if (hour >= 17 && hour < 21) return "Evening is when you shine 🌆";
@@ -48,7 +51,7 @@ export default function ActivitySlide({ data }: Props) {
             transition={{ delay: 0.5 }}
             className="text-6xl md:text-7xl font-black text-gradient"
           >
-            {activity.busiestDay}
+            {activity.busiestDay || "Monday"}
           </motion.div>
           <motion.p
             initial={{ opacity: 0 }}
@@ -70,7 +73,7 @@ export default function ActivitySlide({ data }: Props) {
       >
         <div className="flex justify-between items-end h-32 gap-2">
           {dayNames.map((day, index) => {
-            const count = activity.weekdayDistribution[index] || 0;
+            const count = Number(weekdayDist[index]) || 0;
             const height = maxVal > 0 ? (count / maxVal) * 100 : 0;
             const isHighest = count === maxVal && maxVal > 0;
 
@@ -122,7 +125,7 @@ export default function ActivitySlide({ data }: Props) {
         <div className="p-4 rounded-xl bg-white/5 border border-cyan-500/20 text-center">
           <Clock className="w-5 h-5 text-cyan-400 mx-auto mb-2" />
           <div className="text-lg font-bold text-cyan-400">
-            {activity.busiestHour}:00
+            {activity.busiestHour || 12}:00
           </div>
           <div className="text-xs text-gray-500">Peak Hour</div>
         </div>
@@ -130,9 +133,9 @@ export default function ActivitySlide({ data }: Props) {
         <div className="p-4 rounded-xl bg-white/5 border border-teal-500/20 text-center">
           <Zap className="w-5 h-5 text-teal-400 mx-auto mb-2" />
           <div className="text-lg font-bold text-teal-400">
-            {activity.busiestDayCount}
+            {activity.busiestDayCount || 0}
           </div>
-          <div className="text-xs text-gray-500">{activity.busiestDay} Total</div>
+          <div className="text-xs text-gray-500">{activity.busiestDay || "Day"} Total</div>
         </div>
       </motion.div>
 

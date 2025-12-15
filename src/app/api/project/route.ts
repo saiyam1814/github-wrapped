@@ -245,46 +245,69 @@ async function getForksGained2025(owner: string, name: string, token: string): P
   }
 }
 
-// Contributors active in 2025 using stats/contributors
+
+// Contributors active in 2025 - fetch commits and count unique authors
+// This matches: curl commits?since=2025... | jq '.[] | .author.login' | sort -u | wc -l
 async function getContributors2025(owner: string, name: string, token: string) {
   try {
-    const data = await fetchREST(`/repos/${owner}/${name}/stats/contributors`, token);
-    if (!Array.isArray(data)) {
-      return { totalActive: 0, top: [] as Array<{ login: string; avatarUrl: string; contributions: number }> };
-    }
-
-    const contributors: Array<{ login: string; avatarUrl: string; contributions: number }> = [];
-
-    data.forEach((item: any) => {
-      if (!item || !item.weeks) return;
-      const total = item.weeks.reduce((sum: number, w: any) => {
-        if (!w || !w.w) return sum;
-        const weekDate = new Date(w.w * 1000);
-        if (weekDate.getFullYear() === CURRENT_YEAR) {
-          return sum + (w.a || 0) + (w.d || 0) + (w.c || 0);
+    const contributorMap = new Map<string, { login: string; avatarUrl: string; contributions: number }>();
+    let page = 1;
+    const maxPages = 30; // Up to 3000 commits for accurate contributor count
+    
+    while (page <= maxPages) {
+      const response = await fetch(
+        `${GITHUB_REST_API}/repos/${owner}/${name}/commits?since=2025-01-01T00:00:00Z&until=2025-12-31T23:59:59Z&per_page=100&page=${page}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
         }
-        return sum;
-      }, 0);
-      if (total > 0) {
-        contributors.push({
-          login: item.author?.login || "unknown",
-          avatarUrl: item.author?.avatar_url || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
-          contributions: total,
-        });
+      );
+      
+      if (!response.ok) break;
+      
+      const commits = await response.json();
+      if (!Array.isArray(commits) || commits.length === 0) break;
+      
+      for (const commit of commits) {
+        // Get author - prefer GitHub user, fallback to git commit author name
+        const authorLogin = commit.author?.login || commit.commit?.author?.name || "unknown";
+        const avatarUrl = commit.author?.avatar_url || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
+        
+        const existing = contributorMap.get(authorLogin);
+        if (existing) {
+          existing.contributions++;
+        } else {
+          contributorMap.set(authorLogin, {
+            login: authorLogin,
+            avatarUrl,
+            contributions: 1,
+          });
+        }
       }
-    });
-
-    contributors.sort((a, b) => b.contributions - a.contributions);
-
+      
+      if (commits.length < 100) break;
+      page++;
+      
+      // Small delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 50));
+    }
+    
+    // Sort by contributions (commits) descending
+    const sortedContributors = Array.from(contributorMap.values())
+      .sort((a, b) => b.contributions - a.contributions);
+    
     return {
-      totalActive: contributors.length,
-      top: contributors.slice(0, 10),
+      totalActive: contributorMap.size,
+      top: sortedContributors.slice(0, 10),
     };
   } catch (e) {
-    console.error("Error fetching contributors stats:", e);
+    console.error("Error fetching 2025 contributors:", e);
     return { totalActive: 0, top: [] as Array<{ login: string; avatarUrl: string; contributions: number }> };
   }
 }
+
 
 // Fetch ALL releases and filter for 2025, calculate total downloads
 async function fetchAllReleases2025(owner: string, name: string, token: string) {

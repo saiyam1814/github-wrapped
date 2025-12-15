@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, GitFork, Users, Download, TrendingUp, Rocket, AlertCircle } from "lucide-react";
+import { Star, GitFork, Users, Download, TrendingUp, Rocket, Info, ExternalLink } from "lucide-react";
 import type { ProjectData } from "../page";
 
 interface Props {
@@ -20,6 +20,7 @@ export default function ProjectImpactSlide({ data }: Props) {
 
   // 2025-specific values
   const starsGained2025 = stats?.stars?.gained2025 ?? 0;
+  const totalStars = stats?.stars?.total || 0;
   const forksGained2025 = stats?.forks?.gained2025 || 0;
   const contributorsTotal = stats?.contributors?.total || 0;
   const totalDownloads2025 = releases?.totalDownloads2025 || 0;
@@ -29,9 +30,9 @@ export default function ProjectImpactSlide({ data }: Props) {
   const starsUnavailable = starsGained2025 < 0;
   const downloadsExternal = totalDownloads2025 === 0 && releaseCount > 0;
 
-  // Calculate impact score (excluding unavailable data)
-  const effectiveStars = starsUnavailable ? 0 : starsGained2025;
-  const impactScore = effectiveStars + (forksGained2025 * 2) + (totalDownloads2025 / 100);
+  // Calculate impact score
+  const effectiveStars = starsUnavailable ? totalStars / 10 : starsGained2025; // Use fraction of total if unavailable
+  const impactScore = effectiveStars + (forksGained2025 * 2) + (totalDownloads2025 / 100) + contributorsTotal;
   
   const getImpactLevel = () => {
     if (impactScore >= 10000) return { level: "Legendary", emoji: "🏆", color: "text-yellow-400" };
@@ -87,10 +88,8 @@ export default function ProjectImpactSlide({ data }: Props) {
           <Star className="w-6 h-6 text-yellow-400 mx-auto mb-2" fill="currentColor" />
           {starsUnavailable ? (
             <>
-              <div className="text-xl font-bold text-yellow-400/60 flex items-center justify-center gap-1">
-                <AlertCircle className="w-4 h-4" /> N/A
-              </div>
-              <div className="text-xs text-gray-500 mt-1">Stars (API limit)</div>
+              <div className="text-3xl font-black text-yellow-400">{formatNumber(totalStars)}</div>
+              <div className="text-sm text-gray-500 mt-1">Total Stars</div>
             </>
           ) : (
             <>
@@ -134,13 +133,20 @@ export default function ProjectImpactSlide({ data }: Props) {
           <Download className="w-6 h-6 text-purple-400 mx-auto mb-2" />
           {downloadsExternal ? (
             <>
-              <div className="text-xl font-bold text-purple-400/60">External</div>
-              <div className="text-xs text-gray-500 mt-1">Downloads</div>
+              <div className="text-xl font-bold text-purple-400 flex items-center justify-center gap-1">
+                <ExternalLink className="w-4 h-4" /> Hosted
+              </div>
+              <div className="text-xs text-gray-500 mt-1">externally</div>
             </>
-          ) : (
+          ) : totalDownloads2025 > 0 ? (
             <>
               <div className="text-3xl font-black text-purple-400">{formatNumber(totalDownloads2025)}</div>
               <div className="text-sm text-gray-500 mt-1">Downloads</div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-bold text-purple-400/50">—</div>
+              <div className="text-xs text-gray-500 mt-1">No releases</div>
             </>
           )}
         </motion.div>

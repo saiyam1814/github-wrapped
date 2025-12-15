@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Package, Download, Tag, ArrowDown } from "lucide-react";
+import { Package, Download, Tag, ExternalLink } from "lucide-react";
 import type { ProjectData } from "../page";
 import { useEffect, useState } from "react";
 
@@ -16,7 +16,6 @@ function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number })
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      let start = 0;
       const end = safeValue;
       const duration = 2000;
       const startTime = Date.now();
@@ -46,12 +45,14 @@ function formatDownloads(num: number): string {
 }
 
 export default function ProjectReleasesSlide({ data }: Props) {
-  const { releases } = data;
+  const { releases, repository } = data;
   
-  // Safely get values
   const releaseCount = releases?.count2025 || 0;
   const totalDownloads = releases?.totalDownloads2025 || 0;
   const releasesList = releases?.releases || [];
+  
+  // Check if this is a project that hosts downloads externally
+  const hasReleasesButNoDownloads = releaseCount > 0 && totalDownloads === 0;
 
   // No releases case
   if (releaseCount === 0 && releasesList.length === 0) {
@@ -117,44 +118,35 @@ export default function ProjectReleasesSlide({ data }: Props) {
           <p className="text-gray-400">stable releases</p>
         </motion.div>
 
-        {/* Downloads - show only if we have data, otherwise indicate external hosting */}
-        {totalDownloads > 0 ? (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.5, type: "spring" }}
-            className="text-center"
-          >
-            <div className="relative mb-2">
-              <div className="absolute inset-0 blur-2xl bg-emerald-500/30" />
-              <div className="relative flex items-center gap-2">
-                <Download className="w-8 h-8 text-emerald-400" />
+        {/* Downloads */}
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.5, type: "spring" }}
+          className="text-center"
+        >
+          <div className="relative mb-2">
+            <div className="absolute inset-0 blur-2xl bg-emerald-500/30" />
+            <div className="relative flex items-center gap-2">
+              <Download className="w-8 h-8 text-emerald-400" />
+              {hasReleasesButNoDownloads ? (
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="w-6 h-6 text-emerald-400" />
+                  <span className="text-3xl md:text-4xl font-bold text-emerald-400">
+                    Hosted Externally
+                  </span>
+                </div>
+              ) : (
                 <span className="text-5xl md:text-6xl font-black text-emerald-400">
                   <AnimatedNumber value={totalDownloads} delay={700} />
                 </span>
-              </div>
+              )}
             </div>
-            <p className="text-gray-400">total downloads</p>
-          </motion.div>
-        ) : releaseCount > 0 ? (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.5, type: "spring" }}
-            className="text-center"
-          >
-            <div className="relative mb-2">
-              <div className="absolute inset-0 blur-xl bg-emerald-500/20" />
-              <div className="relative flex items-center gap-2">
-                <Download className="w-8 h-8 text-emerald-400/60" />
-                <span className="text-3xl md:text-4xl font-bold text-emerald-400/60">
-                  External
-                </span>
-              </div>
-            </div>
-            <p className="text-gray-500 text-sm">downloads tracked externally</p>
-          </motion.div>
-        ) : null}
+          </div>
+          <p className="text-gray-400">
+            {hasReleasesButNoDownloads ? "binaries not on GitHub" : "total downloads"}
+          </p>
+        </motion.div>
       </div>
 
       {/* Top Releases */}
@@ -191,10 +183,10 @@ export default function ProjectReleasesSlide({ data }: Props) {
                     </div>
                   </div>
                 </div>
-                {totalDownloads > 0 && (
+                {totalDownloads > 0 && release.downloads > 0 && (
                   <div className="flex items-center gap-1 text-emerald-400">
-                    <ArrowDown className="w-4 h-4" />
-                    <span className="font-bold">{formatDownloads(release.downloads || 0)}</span>
+                    <Download className="w-4 h-4" />
+                    <span className="font-bold">{formatDownloads(release.downloads)}</span>
                   </div>
                 )}
               </motion.div>

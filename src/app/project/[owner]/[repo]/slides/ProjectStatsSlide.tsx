@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, GitFork, GitPullRequest, CircleDot, GitCommit, Users, TrendingUp, AlertCircle } from "lucide-react";
+import { Star, GitFork, GitPullRequest, CircleDot, GitCommit, Users, TrendingUp, Info } from "lucide-react";
 import type { ProjectData } from "../page";
 import { useEffect, useState } from "react";
 
@@ -10,7 +10,7 @@ interface Props {
   onNext: () => void;
 }
 
-function AnimatedNumber({ value, delay = 0, prefix = "", suffix = "" }: { value: number; delay?: number; prefix?: string; suffix?: string }) {
+function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number }) {
   const [display, setDisplay] = useState(0);
   const safeValue = typeof value === 'number' && !isNaN(value) && value >= 0 ? value : 0;
 
@@ -34,7 +34,7 @@ function AnimatedNumber({ value, delay = 0, prefix = "", suffix = "" }: { value:
     return () => clearTimeout(timer);
   }, [safeValue, delay]);
 
-  return <span>{prefix}{display.toLocaleString()}{suffix}</span>;
+  return <span>{display.toLocaleString()}</span>;
 }
 
 function formatLargeNumber(num: number): string {
@@ -48,13 +48,13 @@ export default function ProjectStatsSlide({ data }: Props) {
 
   // 2025-specific values
   const starsGained2025 = stats?.stars?.gained2025 ?? 0;
+  const totalStars = stats?.stars?.total || 0;
   const forksGained2025 = stats?.forks?.gained2025 || 0;
   const prsCreated2025 = stats?.pullRequests?.created2025 || 0;
   const prsMerged2025 = stats?.pullRequests?.merged2025 || 0;
   const issuesCreated2025 = stats?.issues?.created2025 || 0;
   const commits2025 = stats?.commits?.total2025 || 0;
   const contributorsTotal = stats?.contributors?.total2025 || stats?.contributors?.total || 0;
-  const totalStars = stats?.stars?.total || 0;
 
   // Check if stars data is unavailable due to API limits (-1 means unavailable)
   const starsUnavailable = starsGained2025 < 0;
@@ -93,11 +93,13 @@ export default function ProjectStatsSlide({ data }: Props) {
           <Star className="w-8 h-8 text-yellow-400 mx-auto mb-2" fill="currentColor" />
           {starsUnavailable ? (
             <>
-              <div className="text-2xl font-bold text-yellow-400/60 flex items-center justify-center gap-2">
-                <AlertCircle className="w-5 h-5" />
-                N/A
+              <div className="text-4xl md:text-5xl font-black text-yellow-400">
+                {formatLargeNumber(totalStars)}
               </div>
-              <div className="text-xs text-gray-500 mt-1">API limit (40k+ stars)</div>
+              <div className="text-sm text-gray-400 mt-1">Total Stars</div>
+              <div className="text-xs text-gray-500 mt-1 flex items-center justify-center gap-1">
+                <Info className="w-3 h-3" /> 2025 data unavailable
+              </div>
             </>
           ) : (
             <>
@@ -156,18 +158,16 @@ export default function ProjectStatsSlide({ data }: Props) {
         </div>
       </motion.div>
 
-      {/* Total Stars Context */}
-      {totalStars > 0 && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-          className="text-gray-500 text-sm mt-6 flex items-center gap-2"
-        >
-          <Star className="w-4 h-4 text-yellow-500/50" />
-          {formatLargeNumber(totalStars)} total stars • {formatLargeNumber(contributorsTotal)} contributors building together
-        </motion.p>
-      )}
+      {/* Context */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.2 }}
+        className="text-gray-500 text-sm mt-6 flex items-center gap-2"
+      >
+        <Star className="w-4 h-4 text-yellow-500/50" />
+        {formatLargeNumber(contributorsTotal)} contributors building together
+      </motion.p>
     </div>
   );
 }

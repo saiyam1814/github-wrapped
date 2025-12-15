@@ -90,15 +90,14 @@ async function fetchREST(endpoint: string, token: string, customHeaders?: Record
 }
 
 // Get stars gained in 2025
-// GitHub's stargazers API (with starred_at) returns stars in chronological order (oldest first).
-// For large repos (100k+ stars), only ~400 pages (~40k stars) expose timestamps.
-// To find recent stars, we MUST start from the LAST page and work backwards.
+// IMPORTANT: GitHub's stargazers API with timestamps is LIMITED to 400 pages (40k stars).
+// For repos with >40k stars, we can only see the OLDEST stars, not recent ones.
+// In such cases, we return -1 to indicate "data unavailable".
 async function getStarsGained2025(owner: string, name: string, token: string): Promise<number> {
   try {
-    let starsIn2025 = 0;
     const perPage = 100;
     
-    // Get the first page to extract the last page number from Link header
+    // Get first page and check Link header
     const firstResp = await fetch(
       `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=1`,
       {
@@ -114,7 +113,6 @@ async function getStarsGained2025(owner: string, name: string, token: string): P
     const linkHeader = firstResp.headers.get("Link") || "";
     let lastPage = 1;
     
-    // Parse the "last" page from Link header
     const lastMatch = linkHeader.match(/page=(\d+)>; rel="last"/);
     if (lastMatch) {
       lastPage = parseInt(lastMatch[1], 10);
@@ -125,15 +123,47 @@ async function getStarsGained2025(owner: string, name: string, token: string): P
     
     // For single-page repos, count directly
     if (lastPage === 1) {
+      let count = 0;
       for (const star of firstData) {
         if (star.starred_at && new Date(star.starred_at).getFullYear() === CURRENT_YEAR) {
-          starsIn2025++;
+          count++;
         }
       }
-      return starsIn2025;
+      return count;
     }
     
-    // For multi-page repos: Start from LAST page (newest stars) and go backwards
+    // Check if we're at the 400 page limit (GitHub's hard cap for timestamp API)
+    // If so, check if the LAST accessible page still has old stars
+    if (lastPage >= 400) {
+      // Fetch the last accessible page to check dates
+      const lastPageResp = await fetch(
+        `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=${lastPage}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.star+json",
+          },
+        }
+      );
+      
+      if (lastPageResp.ok) {
+        const lastPageData = await lastPageResp.json();
+        if (Array.isArray(lastPageData) && lastPageData.length > 0) {
+          // Check if the newest accessible star is still old
+          const newestAccessible = lastPageData[lastPageData.length - 1];
+          if (newestAccessible?.starred_at) {
+            const newestYear = new Date(newestAccessible.starred_at).getFullYear();
+            // If the "newest" star we can see is from before 2024, we can't see 2025 stars
+            if (newestYear < 2024) {
+              return -1; // Signal: data unavailable due to API limits
+            }
+          }
+        }
+      }
+    }
+    
+    // Otherwise, start from last page and work backwards
+    let starsIn2025 = 0;
     const maxPagesToCheck = Math.min(50, lastPage);
     
     for (let page = lastPage; page > lastPage - maxPagesToCheck && page >= 1; page--) {
@@ -166,7 +196,6 @@ async function getStarsGained2025(owner: string, name: string, token: string): P
         }
       }
       
-      // If this entire page is older than 2025, we can stop
       if (foundOlder && !found2025) break;
       
       await new Promise((r) => setTimeout(r, 50));

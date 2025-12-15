@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, GitFork, Users, Download, TrendingUp, Rocket } from "lucide-react";
+import { Star, GitFork, Users, Download, TrendingUp, Rocket, AlertCircle } from "lucide-react";
 import type { ProjectData } from "../page";
 
 interface Props {
@@ -9,17 +9,29 @@ interface Props {
   onNext: () => void;
 }
 
+function formatNumber(num: number): string {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+  return num.toLocaleString();
+}
+
 export default function ProjectImpactSlide({ data }: Props) {
   const { stats, releases, personality } = data;
 
   // 2025-specific values
-  const starsGained2025 = stats?.stars?.gained2025 || 0;
+  const starsGained2025 = stats?.stars?.gained2025 ?? 0;
   const forksGained2025 = stats?.forks?.gained2025 || 0;
-  const contributorsTotal = stats?.contributors?.total2025 || stats?.contributors?.total || 0;
+  const contributorsTotal = stats?.contributors?.total || 0;
   const totalDownloads2025 = releases?.totalDownloads2025 || 0;
+  const releaseCount = releases?.count2025 || 0;
 
-  // Calculate total impact score
-  const impactScore = starsGained2025 + (forksGained2025 * 2) + (totalDownloads2025 / 100);
+  // Check for API limitations
+  const starsUnavailable = starsGained2025 < 0;
+  const downloadsExternal = totalDownloads2025 === 0 && releaseCount > 0;
+
+  // Calculate impact score (excluding unavailable data)
+  const effectiveStars = starsUnavailable ? 0 : starsGained2025;
+  const impactScore = effectiveStars + (forksGained2025 * 2) + (totalDownloads2025 / 100);
   
   const getImpactLevel = () => {
     if (impactScore >= 10000) return { level: "Legendary", emoji: "🏆", color: "text-yellow-400" };
@@ -30,51 +42,6 @@ export default function ProjectImpactSlide({ data }: Props) {
   };
 
   const impact = getImpactLevel();
-
-  const impactMetrics = [
-    {
-      icon: Star,
-      label: "Stars Gained",
-      value: starsGained2025,
-      color: "text-yellow-400",
-      bg: "bg-yellow-500/10",
-      fill: true,
-      prefix: "+",
-    },
-    {
-      icon: GitFork,
-      label: "Forks Gained",
-      value: forksGained2025,
-      color: "text-emerald-400",
-      bg: "bg-emerald-500/10",
-      fill: false,
-      prefix: "+",
-    },
-    {
-      icon: Users,
-      label: "Contributors",
-      value: contributorsTotal,
-      color: "text-cyan-400",
-      bg: "bg-cyan-500/10",
-      fill: false,
-      prefix: "",
-    },
-    {
-      icon: Download,
-      label: "Downloads",
-      value: totalDownloads2025,
-      color: "text-purple-400",
-      bg: "bg-purple-500/10",
-      fill: false,
-      prefix: "",
-    },
-  ];
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
-    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
-    return num.toLocaleString();
-  };
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
@@ -110,25 +77,73 @@ export default function ProjectImpactSlide({ data }: Props) {
         transition={{ delay: 0.5 }}
         className="grid grid-cols-2 gap-4 w-full max-w-lg mb-8"
       >
-        {impactMetrics.map((metric, index) => (
-          <motion.div
-            key={metric.label}
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: 0.7 + index * 0.1 }}
-            className={`${metric.bg} rounded-2xl p-5 border border-white/5 text-center relative overflow-hidden`}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
-            <metric.icon 
-              className={`w-6 h-6 ${metric.color} mx-auto mb-2 relative`}
-              fill={metric.fill ? "currentColor" : "none"}
-            />
-            <div className={`text-3xl font-black ${metric.color} relative`}>
-              {metric.prefix}{formatNumber(metric.value || 0)}
-            </div>
-            <div className="text-sm text-gray-500 mt-1 relative">{metric.label}</div>
-          </motion.div>
-        ))}
+        {/* Stars */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="bg-yellow-500/10 rounded-2xl p-5 border border-white/5 text-center relative overflow-hidden"
+        >
+          <Star className="w-6 h-6 text-yellow-400 mx-auto mb-2" fill="currentColor" />
+          {starsUnavailable ? (
+            <>
+              <div className="text-xl font-bold text-yellow-400/60 flex items-center justify-center gap-1">
+                <AlertCircle className="w-4 h-4" /> N/A
+              </div>
+              <div className="text-xs text-gray-500 mt-1">Stars (API limit)</div>
+            </>
+          ) : (
+            <>
+              <div className="text-3xl font-black text-yellow-400">+{formatNumber(starsGained2025)}</div>
+              <div className="text-sm text-gray-500 mt-1">Stars Gained</div>
+            </>
+          )}
+        </motion.div>
+
+        {/* Forks */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="bg-emerald-500/10 rounded-2xl p-5 border border-white/5 text-center relative overflow-hidden"
+        >
+          <GitFork className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
+          <div className="text-3xl font-black text-emerald-400">+{formatNumber(forksGained2025)}</div>
+          <div className="text-sm text-gray-500 mt-1">Forks Gained</div>
+        </motion.div>
+
+        {/* Contributors */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 0.9 }}
+          className="bg-cyan-500/10 rounded-2xl p-5 border border-white/5 text-center relative overflow-hidden"
+        >
+          <Users className="w-6 h-6 text-cyan-400 mx-auto mb-2" />
+          <div className="text-3xl font-black text-cyan-400">{formatNumber(contributorsTotal)}</div>
+          <div className="text-sm text-gray-500 mt-1">Contributors</div>
+        </motion.div>
+
+        {/* Downloads */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 1 }}
+          className="bg-purple-500/10 rounded-2xl p-5 border border-white/5 text-center relative overflow-hidden"
+        >
+          <Download className="w-6 h-6 text-purple-400 mx-auto mb-2" />
+          {downloadsExternal ? (
+            <>
+              <div className="text-xl font-bold text-purple-400/60">External</div>
+              <div className="text-xs text-gray-500 mt-1">Downloads</div>
+            </>
+          ) : (
+            <>
+              <div className="text-3xl font-black text-purple-400">{formatNumber(totalDownloads2025)}</div>
+              <div className="text-sm text-gray-500 mt-1">Downloads</div>
+            </>
+          )}
+        </motion.div>
       </motion.div>
 
       {/* Personality Section */}

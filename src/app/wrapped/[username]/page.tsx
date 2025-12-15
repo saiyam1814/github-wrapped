@@ -92,6 +92,11 @@ export default function WrappedPage() {
     }
   };
 
+  const handleNavigateToSlide = useCallback((index: number) => {
+    setCurrentSlide(index);
+    setProgress(0);
+  }, []);
+
   // Auto-advance slides
   useEffect(() => {
     if (isPaused || currentSlide >= slides.length - 1 || currentDuration === 0 || !data) {
@@ -169,6 +174,7 @@ export default function WrappedPage() {
   }
 
   const CurrentSlideComponent = slides[currentSlide].component;
+  const isSummarySlide = currentSlide === slides.length - 1;
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-mesh">
@@ -222,8 +228,18 @@ export default function WrappedPage() {
             exit={{ opacity: 0, x: -100 }}
             transition={{ duration: 0.5 }}
             className="w-full h-full flex items-center justify-center"
+            data-slide-content
           >
-            <CurrentSlideComponent data={data} onNext={handleNext} />
+            {isSummarySlide ? (
+              <SummarySlide 
+                data={data} 
+                onNext={handleNext} 
+                onNavigateToSlide={handleNavigateToSlide}
+                totalSlides={slides.length}
+              />
+            ) : (
+              <CurrentSlideComponent data={data} onNext={handleNext} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

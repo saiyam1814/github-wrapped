@@ -22,9 +22,11 @@ if (typeof window !== "undefined") {
 interface Props {
   data: ProjectData;
   onNext: () => void;
+  onNavigateToSlide?: (index: number) => void;
+  totalSlides?: number;
 }
 
-export default function ProjectSummarySlide({ data }: Props) {
+export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlides = 7 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);
@@ -90,34 +92,28 @@ export default function ProjectSummarySlide({ data }: Props) {
   };
 
   const handleDownloadAllSlides = async () => {
-    if (downloadingAll || !html2canvas) return;
+    if (downloadingAll || !html2canvas || !onNavigateToSlide) return;
     
     setDownloadingAll(true);
     setDownloadProgress(0);
     
     try {
-      // Find dot navigation buttons
-      const dotButtons = document.querySelectorAll('.flex.items-center.gap-2 button');
-      
-      if (dotButtons.length === 0) {
-        alert("Could not find slide navigation. Please try again.");
-        setDownloadingAll(false);
-        return;
-      }
-
       // Capture each slide
-      for (let i = 0; i < dotButtons.length; i++) {
-        setDownloadProgress(Math.round(((i + 1) / dotButtons.length) * 100));
+      for (let i = 0; i < totalSlides; i++) {
+        setDownloadProgress(Math.round(((i + 1) / totalSlides) * 100));
         
-        // Click the dot to navigate to slide
-        (dotButtons[i] as HTMLButtonElement).click();
+        // Navigate to slide
+        onNavigateToSlide(i);
         
         // Wait for animation to complete
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 1000));
         
         // Find the slide content area
-        const slideContent = document.querySelector('.w-full.max-w-5xl .w-full.h-full.flex');
-        if (!slideContent) continue;
+        const slideContent = document.querySelector('[data-slide-content]');
+        if (!slideContent) {
+          console.log("Slide content not found");
+          continue;
+        }
         
         // Capture the slide
         const canvas = await html2canvas(slideContent as HTMLElement, {
@@ -125,10 +121,6 @@ export default function ProjectSummarySlide({ data }: Props) {
           scale: 2,
           logging: false,
           useCORS: true,
-          width: 1080,
-          height: 1080,
-          windowWidth: 1080,
-          windowHeight: 1080,
         });
         
         // Download
@@ -142,7 +134,7 @@ export default function ProjectSummarySlide({ data }: Props) {
       }
       
       // Return to summary slide
-      (dotButtons[dotButtons.length - 1] as HTMLButtonElement).click();
+      onNavigateToSlide(totalSlides - 1);
       
     } catch (e) {
       console.error("Export failed:", e);
@@ -171,7 +163,7 @@ export default function ProjectSummarySlide({ data }: Props) {
       <motion.h1
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-4xl md:text-5xl font-black text-center mb-8"
+        className="text-4xl md:text-5xl font-black text-center mb-6"
       >
         That's a wrap! 🎬
       </motion.h1>
@@ -186,7 +178,7 @@ export default function ProjectSummarySlide({ data }: Props) {
         style={{ backgroundColor: "#0a0f0d" }}
       >
         {/* Header */}
-        <div className="relative p-6 pb-16 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600">
+        <div className="relative p-5 pb-14 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600">
           <div
             className="absolute inset-0 opacity-10"
             style={{
@@ -198,33 +190,33 @@ export default function ProjectSummarySlide({ data }: Props) {
               src={ownerAvatar}
               alt={repoOwner}
               crossOrigin="anonymous"
-              className="w-20 h-20 rounded-full border-4 border-white shadow-xl"
+              className="w-16 h-16 rounded-full border-4 border-white shadow-xl"
             />
           </div>
-          <h2 className="relative text-xl font-black text-white text-center mt-3">{repoName}</h2>
-          <p className="relative text-white/80 text-center text-sm">by {repoOwner}</p>
-          <p className="relative text-white/60 text-center text-xs mt-1">2025 GitHub Wrapped</p>
+          <h2 className="relative text-lg font-black text-white text-center mt-2">{repoName}</h2>
+          <p className="relative text-white/80 text-center text-xs">by {repoOwner}</p>
+          <p className="relative text-white/60 text-center text-[10px] mt-0.5">2025 GitHub Wrapped</p>
         </div>
 
         {/* Stats */}
-        <div className="relative -mt-10 mx-4">
-          <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-[#0d1512] border border-emerald-500/20">
+        <div className="relative -mt-8 mx-3">
+          <div className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-[#0d1512] border border-emerald-500/20">
             {summaryStats.map((stat) => (
               <div key={stat.label} className="p-2 rounded-xl bg-white/5 text-center">
-                <stat.icon className={`w-4 h-4 ${stat.color} mx-auto mb-1`} />
-                <div className="text-lg font-bold text-white">{stat.value}</div>
-                <div className="text-[10px] text-gray-500">{stat.label}</div>
+                <stat.icon className={`w-3.5 h-3.5 ${stat.color} mx-auto mb-0.5`} />
+                <div className="text-base font-bold text-white">{stat.value}</div>
+                <div className="text-[9px] text-gray-500">{stat.label}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Personality & Kubesimplify */}
-        <div className="p-4 pt-3">
-          <div className="flex items-center justify-between mb-3">
+        <div className="p-3 pt-2 pb-4">
+          <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="text-xs text-gray-500 mb-1">Project Type</div>
-              <div className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+              <div className="text-[9px] text-gray-500 mb-0.5">Project Type</div>
+              <div className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
                 {personalityTitle} {personalityEmoji}
               </div>
             </div>
@@ -235,11 +227,11 @@ export default function ProjectSummarySlide({ data }: Props) {
               crossOrigin="anonymous"
             />
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+          <div className="flex items-center justify-between pt-2 border-t border-white/10">
             <div className="text-[10px] text-emerald-400 font-medium">
               Powered by Kubesimplify
             </div>
-            <div className="text-[10px] text-gray-600 font-mono">
+            <div className="text-[9px] text-gray-500 font-mono">
               github-wrapped-five.vercel.app
             </div>
           </div>
@@ -251,53 +243,53 @@ export default function ProjectSummarySlide({ data }: Props) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8 }}
-        className="flex flex-wrap justify-center gap-3 mt-8"
+        className="flex flex-wrap justify-center gap-3 mt-6"
       >
         <button
           onClick={handleDownload}
           disabled={downloading}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold hover:shadow-lg hover:shadow-emerald-500/20 transition-all disabled:opacity-50"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold hover:shadow-lg hover:shadow-emerald-500/20 transition-all disabled:opacity-50 text-sm"
         >
           {downloading ? (
-            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
-            <Download className="w-5 h-5" />
+            <Download className="w-4 h-4" />
           )}
-          {downloading ? "Saving..." : "Download Card"}
+          {downloading ? "Saving..." : "Download"}
         </button>
 
         <button
           onClick={handleDownloadAllSlides}
-          disabled={downloadingAll}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50"
+          disabled={downloadingAll || !onNavigateToSlide}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50 text-sm"
         >
           {downloadingAll ? (
             <>
-              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               <span>{downloadProgress}%</span>
             </>
           ) : (
             <>
-              <Images className="w-5 h-5" />
-              <span>Download All Slides</span>
+              <Images className="w-4 h-4" />
+              <span>All Slides</span>
             </>
           )}
         </button>
 
         <button
           onClick={handleShare}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#1DA1F2] text-white font-semibold hover:bg-[#1a8cd8] transition-all"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1DA1F2] text-white font-semibold hover:bg-[#1a8cd8] transition-all text-sm"
         >
-          <Twitter className="w-5 h-5" />
+          <Twitter className="w-4 h-4" />
           Share
         </button>
 
         <Link
           href="/"
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-emerald-500/20 text-white font-semibold hover:bg-white/10 transition-all"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-emerald-500/20 text-white font-semibold hover:bg-white/10 transition-all text-sm"
         >
-          <RotateCcw className="w-5 h-5" />
-          Start Over
+          <RotateCcw className="w-4 h-4" />
+          New
         </Link>
       </motion.div>
 
@@ -305,9 +297,9 @@ export default function ProjectSummarySlide({ data }: Props) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="mt-6 text-gray-500 text-center text-sm max-w-md"
+        className="mt-4 text-gray-500 text-center text-xs max-w-sm"
       >
-        💡 <span className="text-purple-400">Download All Slides</span> captures each slide exactly as shown!
+        💡 <span className="text-purple-400">All Slides</span> downloads each slide as shown
       </motion.p>
     </div>
   );

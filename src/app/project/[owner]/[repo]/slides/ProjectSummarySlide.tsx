@@ -28,6 +28,7 @@ export default function ProjectSummarySlide({ data }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const { repository, stats, releases, personality } = data;
 
   // Safely get all values
@@ -38,11 +39,8 @@ export default function ProjectSummarySlide({ data }: Props) {
   const totalForks = stats?.forks?.total || 0;
   const contributorsTotal = stats?.contributors?.total || 0;
   const totalDownloads = releases?.totalDownloads2025 || 0;
-  const totalCommits = stats?.commits?.total2025 || 0;
-  const prsCreated = stats?.pullRequests?.created2025 || 0;
   const personalityTitle = personality?.title || "Growing Project";
   const personalityEmoji = personality?.emoji || "🌱";
-  const personalityTagline = personality?.tagline || "Building something great";
 
   useEffect(() => {
     if (!confetti) return;
@@ -95,155 +93,42 @@ export default function ProjectSummarySlide({ data }: Props) {
     if (downloadingAll || !html2canvas) return;
     
     setDownloadingAll(true);
+    setDownloadProgress(0);
     
     try {
-      // Create carousel slides data for project
-      const slides = [
-        {
-          title: repoName,
-          subtitle: `${repoOwner}'s 2025 Wrapped`,
-          emoji: "🎁",
-          stat: "",
-          statLabel: "",
-          gradient: "from-emerald-600 to-cyan-600",
-        },
-        {
-          title: "Stars & Forks",
-          subtitle: "Community recognition",
-          emoji: "⭐",
-          stat: totalStars.toLocaleString(),
-          stat2: totalForks.toLocaleString(),
-          statLabel: "stars",
-          statLabel2: "forks",
-          gradient: "from-yellow-600 to-amber-600",
-        },
-        {
-          title: "PRs & Commits",
-          subtitle: "2025 activity",
-          emoji: "🔄",
-          stat: prsCreated.toLocaleString(),
-          stat2: totalCommits.toLocaleString(),
-          statLabel: "PRs created",
-          statLabel2: "commits",
-          gradient: "from-cyan-600 to-blue-600",
-        },
-        {
-          title: "Contributors",
-          subtitle: "Community power",
-          emoji: "👥",
-          stat: contributorsTotal.toLocaleString(),
-          statLabel: "contributors",
-          gradient: "from-emerald-600 to-teal-600",
-        },
-        {
-          title: "Downloads",
-          subtitle: "2025 reach",
-          emoji: "📥",
-          stat: totalDownloads.toLocaleString(),
-          statLabel: "total downloads",
-          gradient: "from-purple-600 to-pink-600",
-        },
-        {
-          title: personalityTitle,
-          subtitle: personalityTagline,
-          emoji: personalityEmoji,
-          stat: "",
-          statLabel: "",
-          gradient: "from-emerald-600 to-cyan-600",
-          isPersonality: true,
-        },
-      ];
+      // Find dot navigation buttons
+      const dotButtons = document.querySelectorAll('.flex.items-center.gap-2 button');
+      
+      if (dotButtons.length === 0) {
+        alert("Could not find slide navigation. Please try again.");
+        setDownloadingAll(false);
+        return;
+      }
 
-      // Create temporary container
-      const container = document.createElement("div");
-      container.style.position = "fixed";
-      container.style.left = "-9999px";
-      container.style.top = "0";
-      document.body.appendChild(container);
-
-      for (let i = 0; i < slides.length; i++) {
-        const slide = slides[i] as any;
+      // Capture each slide
+      for (let i = 0; i < dotButtons.length; i++) {
+        setDownloadProgress(Math.round(((i + 1) / dotButtons.length) * 100));
         
-        // Create slide element
-        const slideEl = document.createElement("div");
-        slideEl.style.width = "1080px";
-        slideEl.style.height = "1080px";
-        slideEl.style.backgroundColor = "#0a0f0d";
-        slideEl.style.display = "flex";
-        slideEl.style.flexDirection = "column";
-        slideEl.style.alignItems = "center";
-        slideEl.style.justifyContent = "center";
-        slideEl.style.padding = "60px";
-        slideEl.style.fontFamily = "system-ui, -apple-system, sans-serif";
+        // Click the dot to navigate to slide
+        (dotButtons[i] as HTMLButtonElement).click();
         
-        const bgColor1 = slide.gradient.includes('emerald') ? '#059669' : 
-                         slide.gradient.includes('yellow') ? '#ca8a04' : 
-                         slide.gradient.includes('cyan') ? '#0891b2' : 
-                         slide.gradient.includes('purple') ? '#9333ea' : '#059669';
-        const bgColor2 = slide.gradient.includes('cyan') ? '#0891b2' : 
-                         slide.gradient.includes('amber') ? '#d97706' : 
-                         slide.gradient.includes('blue') ? '#2563eb' : 
-                         slide.gradient.includes('pink') ? '#db2777' :
-                         slide.gradient.includes('teal') ? '#14b8a6' : '#14b8a6';
+        // Wait for animation to complete
+        await new Promise(r => setTimeout(r, 800));
         
-        slideEl.innerHTML = `
-          <div style="
-            background: linear-gradient(135deg, ${bgColor1}, ${bgColor2});
-            width: 100%;
-            height: 100%;
-            border-radius: 48px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 60px;
-            position: relative;
-            overflow: hidden;
-          ">
-            <div style="position: absolute; inset: 0; opacity: 0.1; background-image: url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fill-rule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fill-opacity=&quot;0.4&quot;%3E%3Cpath d=&quot;M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');"></div>
-            
-            <div style="font-size: 120px; margin-bottom: 20px; position: relative;">${slide.emoji}</div>
-            
-            <h1 style="font-size: 64px; font-weight: 900; color: white; text-align: center; margin: 0 0 16px 0; position: relative;">${slide.title}</h1>
-            
-            <p style="font-size: 32px; color: rgba(255,255,255,0.8); text-align: center; margin: 0 0 40px 0; position: relative;">${slide.subtitle}</p>
-            
-            ${slide.stat2 ? `
-              <div style="display: flex; gap: 60px; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-size: 100px; font-weight: 900; color: white; line-height: 1;">${slide.stat}</div>
-                  <p style="font-size: 24px; color: rgba(255,255,255,0.7); margin-top: 8px;">${slide.statLabel}</p>
-                </div>
-                <div style="text-align: center;">
-                  <div style="font-size: 100px; font-weight: 900; color: white; line-height: 1;">${slide.stat2}</div>
-                  <p style="font-size: 24px; color: rgba(255,255,255,0.7); margin-top: 8px;">${slide.statLabel2}</p>
-                </div>
-              </div>
-            ` : slide.stat ? `
-              <div style="font-size: 140px; font-weight: 900; color: white; text-align: center; position: relative; line-height: 1;">${slide.stat}</div>
-              <p style="font-size: 28px; color: rgba(255,255,255,0.7); text-align: center; margin-top: 16px; position: relative;">${slide.statLabel}</p>
-            ` : ''}
-            
-            <div style="position: absolute; bottom: 40px; left: 60px; right: 60px; display: flex; justify-content: space-between; align-items: center;">
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <img src="/images/kubesimplify-logo.png" style="width: 40px; height: 40px; border-radius: 50%;" />
-                <span style="color: rgba(255,255,255,0.6); font-size: 18px;">Powered by Kubesimplify</span>
-              </div>
-              <span style="color: rgba(255,255,255,0.5); font-size: 16px;">${repoOwner}/${repoName}</span>
-            </div>
-          </div>
-        `;
+        // Find the slide content area
+        const slideContent = document.querySelector('.w-full.max-w-5xl .w-full.h-full.flex');
+        if (!slideContent) continue;
         
-        container.appendChild(slideEl);
-        
-        // Capture
-        const canvas = await html2canvas(slideEl, {
+        // Capture the slide
+        const canvas = await html2canvas(slideContent as HTMLElement, {
           backgroundColor: "#0a0f0d",
-          scale: 1,
+          scale: 2,
           logging: false,
           useCORS: true,
           width: 1080,
           height: 1080,
+          windowWidth: 1080,
+          windowHeight: 1080,
         });
         
         // Download
@@ -252,17 +137,18 @@ export default function ProjectSummarySlide({ data }: Props) {
         link.href = canvas.toDataURL("image/png");
         link.click();
         
-        container.removeChild(slideEl);
-        
         // Small delay between downloads
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 500));
       }
       
-      document.body.removeChild(container);
+      // Return to summary slide
+      (dotButtons[dotButtons.length - 1] as HTMLButtonElement).click();
+      
     } catch (e) {
       console.error("Export failed:", e);
     } finally {
       setDownloadingAll(false);
+      setDownloadProgress(0);
     }
   };
 
@@ -342,7 +228,6 @@ export default function ProjectSummarySlide({ data }: Props) {
                 {personalityTitle} {personalityEmoji}
               </div>
             </div>
-            {/* Kubesimplify Logo */}
             <img 
               src="/images/kubesimplify-logo.png" 
               alt="Kubesimplify" 
@@ -378,7 +263,7 @@ export default function ProjectSummarySlide({ data }: Props) {
           ) : (
             <Download className="w-5 h-5" />
           )}
-          {downloading ? "Generating..." : "Download Card"}
+          {downloading ? "Saving..." : "Download Card"}
         </button>
 
         <button
@@ -387,11 +272,16 @@ export default function ProjectSummarySlide({ data }: Props) {
           className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50"
         >
           {downloadingAll ? (
-            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <>
+              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>{downloadProgress}%</span>
+            </>
           ) : (
-            <Images className="w-5 h-5" />
+            <>
+              <Images className="w-5 h-5" />
+              <span>Download All Slides</span>
+            </>
           )}
-          {downloadingAll ? "Generating..." : "Download Carousel"}
         </button>
 
         <button
@@ -417,7 +307,7 @@ export default function ProjectSummarySlide({ data }: Props) {
         transition={{ delay: 1 }}
         className="mt-6 text-gray-500 text-center text-sm max-w-md"
       >
-        💡 <span className="text-emerald-400">Download Carousel</span> creates 6 slides perfect for Instagram/LinkedIn!
+        💡 <span className="text-purple-400">Download All Slides</span> captures each slide exactly as shown!
       </motion.p>
     </div>
   );

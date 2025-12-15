@@ -11,7 +11,10 @@ interface Props {
 
 export default function ProjectContributorsSlide({ data }: Props) {
   const { stats } = data;
-  const topContributors = stats.contributors.top.slice(0, 10);
+  
+  // Safely get values
+  const contributorsTotal = stats?.contributors?.total || 0;
+  const topContributors = stats?.contributors?.top || [];
 
   const getMedal = (index: number) => {
     if (index === 0) return { icon: Trophy, color: "text-yellow-400", bg: "bg-yellow-500/20" };
@@ -40,7 +43,7 @@ export default function ProjectContributorsSlide({ data }: Props) {
         <div className="relative flex items-center gap-3">
           <Users className="w-10 h-10 text-emerald-400" />
           <span className="text-6xl md:text-7xl font-black text-gradient">
-            {stats.contributors.total}
+            {contributorsTotal.toLocaleString()}
           </span>
         </div>
       </motion.div>
@@ -76,7 +79,7 @@ export default function ProjectContributorsSlide({ data }: Props) {
               const medal = getMedal(index);
               return (
                 <motion.div
-                  key={contributor.login}
+                  key={contributor.login || index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 1 + index * 0.1 }}
@@ -89,8 +92,8 @@ export default function ProjectContributorsSlide({ data }: Props) {
                       </div>
                     )}
                     <img
-                      src={contributor.avatarUrl}
-                      alt={contributor.login}
+                      src={contributor.avatarUrl || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"}
+                      alt={contributor.login || "Contributor"}
                       className={`w-12 h-12 rounded-full border-2 ${
                         index === 0 
                           ? "border-yellow-400" 
@@ -103,10 +106,10 @@ export default function ProjectContributorsSlide({ data }: Props) {
                     />
                   </div>
                   <span className="text-xs text-gray-400 mt-2 truncate max-w-full">
-                    {contributor.login}
+                    {contributor.login || "User"}
                   </span>
                   <span className="text-xs text-emerald-400 font-medium">
-                    {contributor.contributions}
+                    {(contributor.contributions || 0).toLocaleString()}
                   </span>
                 </motion.div>
               );
@@ -122,24 +125,24 @@ export default function ProjectContributorsSlide({ data }: Props) {
             >
               {topContributors.slice(5, 10).map((contributor, index) => (
                 <motion.img
-                  key={contributor.login}
+                  key={contributor.login || index}
                   initial={{ opacity: 0, scale: 0.5 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 1.7 + index * 0.05 }}
-                  src={contributor.avatarUrl}
-                  alt={contributor.login}
-                  title={`${contributor.login} (${contributor.contributions} commits)`}
+                  src={contributor.avatarUrl || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"}
+                  alt={contributor.login || "Contributor"}
+                  title={`${contributor.login || "User"} (${(contributor.contributions || 0).toLocaleString()} commits)`}
                   className="w-8 h-8 rounded-full border-2 border-[#0a0f0d]"
                 />
               ))}
-              {stats.contributors.total > 10 && (
+              {contributorsTotal > 10 && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 2 }}
                   className="w-8 h-8 rounded-full bg-emerald-500/20 border-2 border-[#0a0f0d] flex items-center justify-center text-xs text-emerald-400"
                 >
-                  +{stats.contributors.total - 10}
+                  +{contributorsTotal - 10}
                 </motion.div>
               )}
             </motion.div>
@@ -158,4 +161,3 @@ export default function ProjectContributorsSlide({ data }: Props) {
     </div>
   );
 }
-

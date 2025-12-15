@@ -12,21 +12,27 @@ interface Props {
 export default function ProjectImpactSlide({ data }: Props) {
   const { stats, releases, personality, repository } = data;
 
+  // Safely get values
+  const totalStars = stats?.stars?.total || 0;
+  const starsGained = stats?.stars?.gained2025 || 0;
+  const totalForks = stats?.forks?.total || 0;
+  const forksGained = stats?.forks?.gained2025 || 0;
+  const contributorsTotal = stats?.contributors?.total || 0;
+  const totalDownloads = releases?.totalDownloads2025 || 0;
+
   const impactMetrics = [
     {
       icon: Star,
-      label: "Stars Gained",
-      value: stats.stars.gained2025,
-      total: stats.stars.total,
+      label: "Total Stars",
+      value: totalStars,
       color: "text-yellow-400",
       bg: "bg-yellow-500/10",
       fill: true,
     },
     {
       icon: GitFork,
-      label: "New Forks",
-      value: stats.forks.gained2025,
-      total: stats.forks.total,
+      label: "Total Forks",
+      value: totalForks,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
       fill: false,
@@ -34,17 +40,15 @@ export default function ProjectImpactSlide({ data }: Props) {
     {
       icon: Users,
       label: "Contributors",
-      value: stats.contributors.total,
-      total: null,
+      value: contributorsTotal,
       color: "text-cyan-400",
       bg: "bg-cyan-500/10",
       fill: false,
     },
     {
       icon: Download,
-      label: "Downloads",
-      value: releases.totalDownloads2025,
-      total: null,
+      label: "Downloads 2025",
+      value: totalDownloads,
       color: "text-purple-400",
       bg: "bg-purple-500/10",
       fill: false,
@@ -58,7 +62,7 @@ export default function ProjectImpactSlide({ data }: Props) {
         animate={{ opacity: 1, y: 0 }}
         className="text-xl md:text-2xl text-gray-400 mb-6"
       >
-        Your project's reach in 2025
+        Your project's reach
       </motion.p>
 
       {/* Impact Grid */}
@@ -82,14 +86,9 @@ export default function ProjectImpactSlide({ data }: Props) {
               fill={metric.fill ? "currentColor" : "none"}
             />
             <div className={`text-3xl font-black ${metric.color} relative`}>
-              {metric.value.toLocaleString()}
+              {(metric.value || 0).toLocaleString()}
             </div>
             <div className="text-sm text-gray-500 mt-1 relative">{metric.label}</div>
-            {metric.total && (
-              <div className="text-xs text-gray-600 mt-1 relative">
-                of {metric.total.toLocaleString()} total
-              </div>
-            )}
           </motion.div>
         ))}
       </motion.div>
@@ -107,37 +106,38 @@ export default function ProjectImpactSlide({ data }: Props) {
           transition={{ delay: 1.4, type: "spring" }}
           className="text-5xl mb-3"
         >
-          {personality.emoji}
+          {personality?.emoji || "🚀"}
         </motion.div>
         <h2 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-          {personality.title}
+          {personality?.title || "Growing Project"}
         </h2>
         <p className="text-gray-400 mt-2 max-w-md">
-          "{personality.tagline}"
+          "{personality?.tagline || "Building something great"}"
         </p>
       </motion.div>
 
       {/* Traits */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.8 }}
-        className="flex flex-wrap justify-center gap-2 mt-6"
-      >
-        {personality.traits.slice(0, 4).map((trait, index) => (
-          <motion.div
-            key={trait.name}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 2 + index * 0.1 }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20"
-          >
-            <span>{trait.icon}</span>
-            <span className="text-sm text-gray-300">{trait.name}</span>
-          </motion.div>
-        ))}
-      </motion.div>
+      {personality?.traits && personality.traits.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.8 }}
+          className="flex flex-wrap justify-center gap-2 mt-6"
+        >
+          {personality.traits.slice(0, 4).map((trait, index) => (
+            <motion.div
+              key={trait.name || index}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 2 + index * 0.1 }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20"
+            >
+              <span>{trait.icon || "✨"}</span>
+              <span className="text-sm text-gray-300">{trait.name || "Trait"}</span>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
     </div>
   );
 }
-

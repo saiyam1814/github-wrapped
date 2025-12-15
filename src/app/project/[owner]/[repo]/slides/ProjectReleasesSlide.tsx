@@ -12,11 +12,12 @@ interface Props {
 
 function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number }) {
   const [display, setDisplay] = useState(0);
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
 
   useEffect(() => {
     const timer = setTimeout(() => {
       let start = 0;
-      const end = value;
+      const end = safeValue;
       const duration = 2000;
       const startTime = Date.now();
 
@@ -32,12 +33,13 @@ function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number })
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [value, delay]);
+  }, [safeValue, delay]);
 
   return <span>{display.toLocaleString()}</span>;
 }
 
 function formatDownloads(num: number): string {
+  if (!num || isNaN(num)) return "0";
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
   return num.toString();
@@ -45,9 +47,14 @@ function formatDownloads(num: number): string {
 
 export default function ProjectReleasesSlide({ data }: Props) {
   const { releases } = data;
+  
+  // Safely get values
+  const releaseCount = releases?.count2025 || 0;
+  const totalDownloads = releases?.totalDownloads2025 || 0;
+  const releasesList = releases?.releases || [];
 
   // No releases case
-  if (releases.count2025 === 0) {
+  if (releaseCount === 0 && releasesList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-4 text-center">
         <motion.div
@@ -71,13 +78,13 @@ export default function ProjectReleasesSlide({ data }: Props) {
           transition={{ delay: 0.5 }}
           className="text-gray-400 max-w-md"
         >
-          Alpha, beta, and pre-releases are excluded. Stable releases coming soon!
+          Alpha, beta, RC, and pre-releases are excluded. Stable releases coming soon!
         </motion.p>
       </div>
     );
   }
 
-  const topReleases = releases.releases.slice(0, 5);
+  const topReleases = releasesList.slice(0, 5);
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
@@ -103,7 +110,7 @@ export default function ProjectReleasesSlide({ data }: Props) {
             <div className="relative flex items-center gap-2">
               <Package className="w-8 h-8 text-cyan-400" />
               <span className="text-5xl md:text-6xl font-black text-cyan-400">
-                <AnimatedNumber value={releases.count2025} delay={500} />
+                <AnimatedNumber value={releaseCount} delay={500} />
               </span>
             </div>
           </div>
@@ -122,7 +129,7 @@ export default function ProjectReleasesSlide({ data }: Props) {
             <div className="relative flex items-center gap-2">
               <Download className="w-8 h-8 text-emerald-400" />
               <span className="text-5xl md:text-6xl font-black text-emerald-400">
-                <AnimatedNumber value={releases.totalDownloads2025} delay={700} />
+                <AnimatedNumber value={totalDownloads} delay={700} />
               </span>
             </div>
           </div>
@@ -142,7 +149,7 @@ export default function ProjectReleasesSlide({ data }: Props) {
           <div className="space-y-2">
             {topReleases.map((release, index) => (
               <motion.div
-                key={release.tagName}
+                key={release.tagName || index}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 1.2 + index * 0.1 }}
@@ -152,19 +159,19 @@ export default function ProjectReleasesSlide({ data }: Props) {
                   <Tag className="w-4 h-4 text-cyan-400" />
                   <div>
                     <div className="text-white font-medium text-sm">
-                      {release.name || release.tagName}
+                      {release.name || release.tagName || "Release"}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {new Date(release.publishedAt).toLocaleDateString("en-US", {
+                      {release.publishedAt ? new Date(release.publishedAt).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
-                      })}
+                      }) : ""}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-emerald-400">
                   <ArrowDown className="w-4 h-4" />
-                  <span className="font-bold">{formatDownloads(release.downloads)}</span>
+                  <span className="font-bold">{formatDownloads(release.downloads || 0)}</span>
                 </div>
               </motion.div>
             ))}
@@ -183,4 +190,3 @@ export default function ProjectReleasesSlide({ data }: Props) {
     </div>
   );
 }
-

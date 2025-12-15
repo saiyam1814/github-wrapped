@@ -12,19 +12,24 @@ interface Props {
 export default function ProjectActivitySlide({ data }: Props) {
   const { activity, stats } = data;
   
+  // Safely get monthly data
+  const monthlyCommits = activity?.monthlyCommits || {};
+  const totalCommits = stats?.commits?.total2025 || 0;
+  
   // Get monthly data sorted
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const monthlyData = monthNames.map((name, index) => {
     const key = `2025-${String(index + 1).padStart(2, '0')}`;
     return {
       name,
-      commits: activity.monthlyCommits[key] || 0,
+      commits: monthlyCommits[key] || 0,
     };
   });
   
   const maxCommits = Math.max(...monthlyData.map(m => m.commits), 1);
   const peakMonth = monthlyData.reduce((max, m) => m.commits > max.commits ? m : max, monthlyData[0]);
-  const totalCommits = monthlyData.reduce((sum, m) => sum + m.commits, 0);
+  const monthlyTotal = monthlyData.reduce((sum, m) => sum + m.commits, 0);
+  const finalTotal = totalCommits > 0 ? totalCommits : monthlyTotal;
   
   // Find the month with most activity
   const activeMonths = monthlyData.filter(m => m.commits > 0).length;
@@ -50,7 +55,7 @@ export default function ProjectActivitySlide({ data }: Props) {
         <div className="relative flex items-center gap-3">
           <GitCommit className="w-8 h-8 text-purple-400" />
           <span className="text-5xl md:text-6xl font-black text-purple-400">
-            {totalCommits.toLocaleString()}
+            {finalTotal.toLocaleString()}
           </span>
         </div>
         <p className="text-gray-400 text-center mt-2">commits this year</p>
@@ -72,10 +77,9 @@ export default function ProjectActivitySlide({ data }: Props) {
               <motion.div
                 key={month.name}
                 className="flex-1 flex flex-col items-center"
-                initial={{ opacity: 0, scaleY: 0 }}
-                animate={{ opacity: 1, scaleY: 1 }}
-                transition={{ delay: 0.8 + index * 0.05, duration: 0.5 }}
-                style={{ transformOrigin: "bottom" }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 + index * 0.05 }}
               >
                 <div className="relative w-full flex flex-col items-center" style={{ height: "120px" }}>
                   {isPeak && month.commits > 0 && (
@@ -127,7 +131,7 @@ export default function ProjectActivitySlide({ data }: Props) {
         <div className="p-4 rounded-xl bg-white/5 border border-purple-500/20 text-center">
           <GitCommit className="w-5 h-5 text-purple-400 mx-auto mb-2" />
           <div className="text-lg font-bold text-purple-400">
-            {activeMonths > 0 ? Math.round(totalCommits / activeMonths) : 0}
+            {activeMonths > 0 ? Math.round(monthlyTotal / activeMonths) : 0}
           </div>
           <div className="text-xs text-gray-500">Avg/Month</div>
         </div>
@@ -150,4 +154,3 @@ export default function ProjectActivitySlide({ data }: Props) {
     </div>
   );
 }
-

@@ -12,11 +12,12 @@ interface Props {
 
 function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number }) {
   const [display, setDisplay] = useState(0);
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
 
   useEffect(() => {
     const timer = setTimeout(() => {
       let start = 0;
-      const end = value;
+      const end = safeValue;
       const duration = 2000;
       const startTime = Date.now();
 
@@ -32,7 +33,7 @@ function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number })
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [value, delay]);
+  }, [safeValue, delay]);
 
   return <span>{display.toLocaleString()}</span>;
 }
@@ -40,11 +41,19 @@ function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number })
 export default function ProjectStatsSlide({ data }: Props) {
   const { stats } = data;
 
+  // Safely get values with fallbacks
+  const totalStars = stats?.stars?.total || 0;
+  const totalForks = stats?.forks?.total || 0;
+  const prsCreated = stats?.pullRequests?.created2025 || 0;
+  const prsMerged = stats?.pullRequests?.merged2025 || 0;
+  const issuesCreated = stats?.issues?.created2025 || 0;
+  const commits = stats?.commits?.total2025 || 0;
+  const contributorsTotal = stats?.contributors?.total || 0;
+
   const mainStats = [
     { 
       label: "Total Stars", 
-      value: stats.stars.total, 
-      gained: stats.stars.gained2025,
+      value: totalStars, 
       icon: Star, 
       color: "text-yellow-400", 
       bg: "bg-yellow-500/10",
@@ -52,8 +61,7 @@ export default function ProjectStatsSlide({ data }: Props) {
     },
     { 
       label: "Total Forks", 
-      value: stats.forks.total, 
-      gained: stats.forks.gained2025,
+      value: totalForks, 
       icon: GitFork, 
       color: "text-emerald-400", 
       bg: "bg-emerald-500/10",
@@ -62,10 +70,10 @@ export default function ProjectStatsSlide({ data }: Props) {
   ];
 
   const yearStats = [
-    { label: "PRs Created", value: stats.pullRequests.created2025, icon: GitPullRequest, color: "text-cyan-400", bg: "bg-cyan-500/10" },
-    { label: "PRs Merged", value: stats.pullRequests.merged2025, icon: GitPullRequest, color: "text-green-400", bg: "bg-green-500/10" },
-    { label: "Issues Created", value: stats.issues.created2025, icon: CircleDot, color: "text-amber-400", bg: "bg-amber-500/10" },
-    { label: "Commits", value: stats.commits.total2025, icon: GitCommit, color: "text-purple-400", bg: "bg-purple-500/10" },
+    { label: "PRs Created", value: prsCreated, icon: GitPullRequest, color: "text-cyan-400", bg: "bg-cyan-500/10" },
+    { label: "PRs Merged", value: prsMerged, icon: GitPullRequest, color: "text-green-400", bg: "bg-green-500/10" },
+    { label: "Issues Created", value: issuesCreated, icon: CircleDot, color: "text-amber-400", bg: "bg-amber-500/10" },
+    { label: "Commits", value: commits, icon: GitCommit, color: "text-purple-400", bg: "bg-purple-500/10" },
   ];
 
   return (
@@ -102,11 +110,6 @@ export default function ProjectStatsSlide({ data }: Props) {
               <AnimatedNumber value={stat.value} delay={700 + index * 150} />
             </div>
             <div className="text-sm text-gray-500 mt-2 relative">{stat.label}</div>
-            {stat.gained > 0 && (
-              <div className="text-xs text-emerald-400 mt-1 relative">
-                +{stat.gained.toLocaleString()} in 2025
-              </div>
-            )}
           </motion.div>
         ))}
       </motion.div>
@@ -144,10 +147,9 @@ export default function ProjectStatsSlide({ data }: Props) {
       >
         <Eye className="w-5 h-5 text-gray-500" />
         <span className="text-gray-400">
-          <span className="text-white font-bold">{stats.contributors.total}</span> contributors made this possible
+          <span className="text-white font-bold">{contributorsTotal.toLocaleString()}</span> contributors made this possible
         </span>
       </motion.div>
     </div>
   );
 }
-

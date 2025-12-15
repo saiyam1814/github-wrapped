@@ -29,6 +29,17 @@ export default function ProjectSummarySlide({ data }: Props) {
   const [downloading, setDownloading] = useState(false);
   const { repository, stats, releases, personality } = data;
 
+  // Safely get all values
+  const repoName = repository?.name || "Repository";
+  const repoOwner = repository?.owner?.login || "owner";
+  const ownerAvatar = repository?.owner?.avatarUrl || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
+  const totalStars = stats?.stars?.total || 0;
+  const totalForks = stats?.forks?.total || 0;
+  const contributorsTotal = stats?.contributors?.total || 0;
+  const totalDownloads = releases?.totalDownloads2025 || 0;
+  const personalityTitle = personality?.title || "Growing Project";
+  const personalityEmoji = personality?.emoji || "🌱";
+
   useEffect(() => {
     if (!confetti) return;
 
@@ -66,7 +77,7 @@ export default function ProjectSummarySlide({ data }: Props) {
       });
 
       const link = document.createElement("a");
-      link.download = `github-wrapped-2025-${repository.nameWithOwner.replace("/", "-")}.png`;
+      link.download = `github-wrapped-2025-${repoOwner}-${repoName}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     } catch (e) {
@@ -77,17 +88,17 @@ export default function ProjectSummarySlide({ data }: Props) {
   };
 
   const handleShare = () => {
-    const text = `🎁 ${repository.nameWithOwner} GitHub Wrapped 2025:\n\n⭐ ${stats.stars.total.toLocaleString()} stars (+${stats.stars.gained2025} this year)\n🍴 ${stats.forks.total.toLocaleString()} forks\n👥 ${stats.contributors.total} contributors\n📦 ${releases.count2025} releases, ${releases.totalDownloads2025.toLocaleString()} downloads\n\n${personality.emoji} "${personality.title}"\n\nGet yours at https://github-wrapped-five.vercel.app`;
+    const text = `🎁 ${repoOwner}/${repoName} GitHub Wrapped 2025:\n\n⭐ ${totalStars.toLocaleString()} stars\n🍴 ${totalForks.toLocaleString()} forks\n👥 ${contributorsTotal} contributors\n📥 ${totalDownloads.toLocaleString()} downloads\n\n${personalityEmoji} "${personalityTitle}"\n\nGet yours at https://github-wrapped-five.vercel.app`;
 
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
 
   const summaryStats = [
-    { icon: Star, label: "Stars", value: stats.stars.total.toLocaleString(), color: "text-yellow-400" },
-    { icon: GitFork, label: "Forks", value: stats.forks.total.toLocaleString(), color: "text-emerald-400" },
-    { icon: Users, label: "Contributors", value: stats.contributors.total.toString(), color: "text-cyan-400" },
-    { icon: Package, label: "Downloads", value: releases.totalDownloads2025.toLocaleString(), color: "text-purple-400" },
+    { icon: Star, label: "Stars", value: totalStars.toLocaleString(), color: "text-yellow-400" },
+    { icon: GitFork, label: "Forks", value: totalForks.toLocaleString(), color: "text-emerald-400" },
+    { icon: Users, label: "Contributors", value: contributorsTotal.toLocaleString(), color: "text-cyan-400" },
+    { icon: Package, label: "Downloads", value: totalDownloads.toLocaleString(), color: "text-purple-400" },
   ];
 
   return (
@@ -119,14 +130,14 @@ export default function ProjectSummarySlide({ data }: Props) {
           />
           <div className="relative flex justify-center">
             <img
-              src={repository.owner.avatarUrl}
-              alt={repository.owner.login}
+              src={ownerAvatar}
+              alt={repoOwner}
               crossOrigin="anonymous"
               className="w-20 h-20 rounded-full border-4 border-white shadow-xl"
             />
           </div>
-          <h2 className="relative text-xl font-black text-white text-center mt-3">{repository.name}</h2>
-          <p className="relative text-white/80 text-center text-sm">by {repository.owner.login}</p>
+          <h2 className="relative text-xl font-black text-white text-center mt-3">{repoName}</h2>
+          <p className="relative text-white/80 text-center text-sm">by {repoOwner}</p>
           <p className="relative text-white/60 text-center text-xs mt-1">2025 GitHub Wrapped</p>
         </div>
 
@@ -149,7 +160,7 @@ export default function ProjectSummarySlide({ data }: Props) {
             <div>
               <div className="text-xs text-gray-500 mb-1">Project Type</div>
               <div className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-                {personality.title} {personality.emoji}
+                {personalityTitle} {personalityEmoji}
               </div>
             </div>
             {/* Kubesimplify Logo */}

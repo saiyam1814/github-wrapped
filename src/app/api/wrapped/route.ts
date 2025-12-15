@@ -154,10 +154,17 @@ function processUserData(user: any, languageData: any, year: number) {
     }
   });
 
+  // Current streak: count backwards from TODAY (not end of year)
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
   for (let i = allDays.length - 1; i >= 0; i--) {
+    // Skip future days (haven't happened yet)
+    if (allDays[i].date > today) continue;
+    
     if (allDays[i].contributionCount > 0) {
       currentStreak++;
     } else {
+      // Allow 1 day gap (today might not be updated yet)
+      if (allDays[i].date === today) continue;
       break;
     }
   }

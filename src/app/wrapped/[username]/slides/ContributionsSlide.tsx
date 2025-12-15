@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { GitCommit, GitPullRequest, CircleDot, Eye } from "lucide-react";
+import { GitCommit, GitPullRequest, CircleDot, Eye, FolderGit2 } from "lucide-react";
 import type { DeveloperData } from "../utils";
 import { useEffect, useState } from "react";
 
@@ -91,10 +91,23 @@ export default function ContributionsSlide({ data }: Props) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1 }}
-        className="text-gray-400 max-w-lg mb-10 text-lg"
+        className="text-gray-400 max-w-lg mb-6 text-lg"
       >
-        That's an average of {activity.averagePerDay} contributions per active day
+        That's an average of <span className="text-emerald-400 font-bold">{activity.averagePerDay}</span> contributions per active day
       </motion.p>
+
+      {/* Repos Contributed To */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 1.1 }}
+        className="flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20"
+      >
+        <FolderGit2 className="w-5 h-5 text-purple-400" />
+        <span className="text-purple-300">
+          Contributed to <span className="font-bold text-purple-400">{contributions.reposContributedTo}</span> repositories
+        </span>
+      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}

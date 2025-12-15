@@ -9,6 +9,7 @@ export interface DeveloperData {
     bio?: string;
     followers: number;
     following: number;
+    createdAt?: string;
   };
   contributions: {
     total: number;
@@ -16,9 +17,12 @@ export interface DeveloperData {
     pullRequests: number;
     issues: number;
     reviews: number;
+    reposContributedTo: number;
   };
   activity: {
     longestStreak: number;
+    longestStreakStart?: string;
+    longestStreakEnd?: string;
     currentStreak: number;
     busiestDay: string;
     busiestDayCount: number;
@@ -29,6 +33,7 @@ export interface DeveloperData {
     totalDays: number;
     averagePerDay: string;
     weekdayDistribution: Record<number, number>;
+    monthlyDistribution?: Record<string, number>;
   };
   languages: {
     all: Array<{
@@ -51,6 +56,20 @@ export interface DeveloperData {
       name: string;
       stars: number;
       description?: string;
+    };
+    mostContributedRepo?: {
+      name: string;
+      nameWithOwner: string;
+      commits: number;
+      prs: number;
+      issues: number;
+      total: number;
+      isOwn: boolean;
+    };
+    ossContributions?: {
+      repoCount: number;
+      totalContributions: number;
+      prsToPopularRepos: number;
     };
   };
   personality: {
@@ -89,6 +108,7 @@ export function generateDemoData(): DeveloperData {
       pullRequests: 234,
       issues: 89,
       reviews: 156,
+      reposContributedTo: 47,
     },
     activity: {
       longestStreak: 47,
@@ -126,19 +146,34 @@ export function generateDemoData(): DeveloperData {
         stars: 4521,
         description: "An awesome open source project",
       },
+      mostContributedRepo: {
+        name: "awesome-project",
+        nameWithOwner: "octocat/awesome-project",
+        commits: 847,
+        prs: 23,
+        issues: 12,
+        total: 882,
+        isOwn: true,
+      },
+      ossContributions: {
+        repoCount: 15,
+        totalContributions: 234,
+        prsToPopularRepos: 8,
+      },
     },
     personality: {
-      archetype: "polyglot",
-      title: "The Polyglot",
-      emoji: "🌍",
-      tagline: "Master of many, limited by none",
-      description: "5 languages in your arsenal. You don't see technologies as barriers—you see them as tools.",
+      archetype: "polyglot-wizard",
+      title: "The Polyglot Wizard",
+      emoji: "🧙‍♂️",
+      tagline: "Master of the coding multiverse",
+      description: "You speak fluent code in multiple languages. Barriers? You don't see any.",
       traits: [
-        { name: "Polyglot", description: "5+ languages", score: 92, icon: "🌍" },
-        { name: "Streak Master", description: "47 day streak", score: 85, icon: "🔥" },
-        { name: "Maintainer", description: "8934 stars", score: 90, icon: "⭐" },
+        { name: "Language Wizard", description: "5+ languages", score: 92, icon: "🧙" },
+        { name: "Streak Demon", description: "47 day streak", score: 85, icon: "🔥" },
+        { name: "Superstar", description: "8.9k stars", score: 90, icon: "🌟" },
+        { name: "OSS Warrior", description: "15 repos", score: 88, icon: "⚔️" },
       ],
-      badges: ["🌟 Legendary Streak", "👑 Commit King", "🌐 Open Source Hero", "✨ Star Collector"],
+      badges: ["🧙 Polyglot Wizard", "👹 Streak Demon", "🌟 Superstar", "⚔️ OSS Warrior", "🚀 Prolific Shipper"],
     },
   };
 }

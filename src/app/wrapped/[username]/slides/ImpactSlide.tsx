@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, GitFork, FolderGit2 } from "lucide-react";
+import { Star, GitFork, FolderGit2, Flame, Globe } from "lucide-react";
 import type { DeveloperData } from "../utils";
 
 interface Props {
@@ -100,7 +100,7 @@ export default function ImpactSlide({ data }: Props) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.9 }}
-        className="flex gap-8 mb-10"
+        className="flex gap-8 mb-8"
       >
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
@@ -117,28 +117,66 @@ export default function ImpactSlide({ data }: Props) {
           </div>
           <div className="text-gray-500 text-sm">Repositories</div>
         </div>
+
+        {impact.ossContributions && impact.ossContributions.repoCount > 0 && (
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Globe className="w-5 h-5 text-purple-400" />
+              <span className="text-3xl font-bold text-purple-400">{impact.ossContributions.repoCount}</span>
+            </div>
+            <div className="text-gray-500 text-sm">OSS Repos</div>
+          </div>
+        )}
       </motion.div>
 
-      {/* Top Repository */}
+      {/* Most Contributed Repository */}
+      {impact.mostContributedRepo && (
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.1 }}
+          className="w-full max-w-md mb-4"
+        >
+          <p className="text-sm text-gray-500 mb-3 text-center">Most contributed repository</p>
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white">{impact.mostContributedRepo.nameWithOwner}</h3>
+                <div className="flex gap-3 mt-2 text-sm">
+                  <span className="text-emerald-400">{impact.mostContributedRepo.commits} commits</span>
+                  <span className="text-cyan-400">{impact.mostContributedRepo.prs} PRs</span>
+                  <span className="text-amber-400">{impact.mostContributedRepo.issues} issues</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/20">
+                <Flame className="w-4 h-4 text-emerald-400" />
+                <span className="text-emerald-400 font-bold text-sm">{impact.mostContributedRepo.total}</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Top Repository by Stars */}
       {impact.mostStarredRepo && (
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2 }}
+          transition={{ delay: 1.3 }}
           className="w-full max-w-md"
         >
-          <p className="text-sm text-gray-500 mb-3 text-center">Your most starred repository</p>
-          <div className="p-5 rounded-2xl bg-white/5 border border-yellow-500/20">
-            <div className="flex items-start justify-between mb-2">
+          <p className="text-sm text-gray-500 mb-3 text-center">Most starred repository</p>
+          <div className="p-4 rounded-2xl bg-white/5 border border-yellow-500/20">
+            <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-xl font-bold text-white">{impact.mostStarredRepo.name}</h3>
+                <h3 className="text-lg font-bold text-white">{impact.mostStarredRepo.name}</h3>
                 {impact.mostStarredRepo.description && (
-                  <p className="text-gray-500 text-sm mt-1 line-clamp-2">
+                  <p className="text-gray-500 text-sm mt-1 line-clamp-1">
                     {impact.mostStarredRepo.description}
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-yellow-500/10">
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/10">
                 <Star className="w-4 h-4 text-yellow-400" fill="currentColor" />
                 <span className="text-yellow-400 font-bold">{impact.mostStarredRepo.stars.toLocaleString()}</span>
               </div>
@@ -152,7 +190,7 @@ export default function ImpactSlide({ data }: Props) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.6 }}
-        className="text-gray-400 text-center mt-8 max-w-md"
+        className="text-gray-400 text-center mt-6 max-w-md"
       >
         {getMessage()}
       </motion.p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, GitFork, Users, Download } from "lucide-react";
+import { Star, GitFork, Users, Download, TrendingUp, Rocket } from "lucide-react";
 import type { ProjectData } from "../page";
 
 interface Props {
@@ -10,32 +10,45 @@ interface Props {
 }
 
 export default function ProjectImpactSlide({ data }: Props) {
-  const { stats, releases, personality, repository } = data;
+  const { stats, releases, personality } = data;
 
-  // Safely get values
-  const totalStars = stats?.stars?.total || 0;
-  const starsGained = stats?.stars?.gained2025 || 0;
-  const totalForks = stats?.forks?.total || 0;
-  const forksGained = stats?.forks?.gained2025 || 0;
+  // 2025-specific values
+  const starsGained2025 = stats?.stars?.gained2025 || 0;
+  const forksGained2025 = stats?.forks?.gained2025 || 0;
   const contributorsTotal = stats?.contributors?.total || 0;
-  const totalDownloads = releases?.totalDownloads2025 || 0;
+  const totalDownloads2025 = releases?.totalDownloads2025 || 0;
+
+  // Calculate total impact score
+  const impactScore = starsGained2025 + (forksGained2025 * 2) + (totalDownloads2025 / 100);
+  
+  const getImpactLevel = () => {
+    if (impactScore >= 10000) return { level: "Legendary", emoji: "🏆", color: "text-yellow-400" };
+    if (impactScore >= 5000) return { level: "Massive", emoji: "🚀", color: "text-purple-400" };
+    if (impactScore >= 1000) return { level: "Significant", emoji: "⚡", color: "text-cyan-400" };
+    if (impactScore >= 100) return { level: "Growing", emoji: "📈", color: "text-emerald-400" };
+    return { level: "Building", emoji: "🌱", color: "text-green-400" };
+  };
+
+  const impact = getImpactLevel();
 
   const impactMetrics = [
     {
       icon: Star,
-      label: "Total Stars",
-      value: totalStars,
+      label: "Stars Gained",
+      value: starsGained2025,
       color: "text-yellow-400",
       bg: "bg-yellow-500/10",
       fill: true,
+      prefix: "+",
     },
     {
       icon: GitFork,
-      label: "Total Forks",
-      value: totalForks,
+      label: "Forks Gained",
+      value: forksGained2025,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
       fill: false,
+      prefix: "+",
     },
     {
       icon: Users,
@@ -44,40 +57,65 @@ export default function ProjectImpactSlide({ data }: Props) {
       color: "text-cyan-400",
       bg: "bg-cyan-500/10",
       fill: false,
+      prefix: "",
     },
     {
       icon: Download,
-      label: "Downloads 2025",
-      value: totalDownloads,
+      label: "Downloads",
+      value: totalDownloads2025,
       color: "text-purple-400",
       bg: "bg-purple-500/10",
       fill: false,
+      prefix: "",
     },
   ];
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toLocaleString();
+  };
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
       <motion.p
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-xl md:text-2xl text-gray-400 mb-6"
+        className="text-xl md:text-2xl text-gray-400 mb-2"
       >
-        Your project's reach
+        2025 Impact
       </motion.p>
+
+      {/* Impact Level Badge */}
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.3, type: "spring" }}
+        className="mb-6"
+      >
+        <div className="flex items-center gap-3 px-5 py-2 rounded-full bg-white/5 border border-emerald-500/20">
+          <span className="text-2xl">{impact.emoji}</span>
+          <div>
+            <span className={`text-lg font-bold ${impact.color}`}>{impact.level}</span>
+            <span className="text-gray-500 text-sm ml-2">Impact</span>
+          </div>
+          <TrendingUp className={`w-5 h-5 ${impact.color}`} />
+        </div>
+      </motion.div>
 
       {/* Impact Grid */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="grid grid-cols-2 gap-4 w-full max-w-lg mb-10"
+        transition={{ delay: 0.5 }}
+        className="grid grid-cols-2 gap-4 w-full max-w-lg mb-8"
       >
         {impactMetrics.map((metric, index) => (
           <motion.div
             key={metric.label}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5 + index * 0.1 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ delay: 0.7 + index * 0.1 }}
             className={`${metric.bg} rounded-2xl p-5 border border-white/5 text-center relative overflow-hidden`}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
@@ -86,7 +124,7 @@ export default function ProjectImpactSlide({ data }: Props) {
               fill={metric.fill ? "currentColor" : "none"}
             />
             <div className={`text-3xl font-black ${metric.color} relative`}>
-              {(metric.value || 0).toLocaleString()}
+              {metric.prefix}{formatNumber(metric.value || 0)}
             </div>
             <div className="text-sm text-gray-500 mt-1 relative">{metric.label}</div>
           </motion.div>
@@ -101,8 +139,8 @@ export default function ProjectImpactSlide({ data }: Props) {
         className="text-center"
       >
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
           transition={{ delay: 1.4, type: "spring" }}
           className="text-5xl mb-3"
         >
@@ -116,28 +154,16 @@ export default function ProjectImpactSlide({ data }: Props) {
         </p>
       </motion.div>
 
-      {/* Traits */}
-      {personality?.traits && personality.traits.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.8 }}
-          className="flex flex-wrap justify-center gap-2 mt-6"
-        >
-          {personality.traits.slice(0, 4).map((trait, index) => (
-            <motion.div
-              key={trait.name || index}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 2 + index * 0.1 }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20"
-            >
-              <span>{trait.icon || "✨"}</span>
-              <span className="text-sm text-gray-300">{trait.name || "Trait"}</span>
-            </motion.div>
-          ))}
-        </motion.div>
-      )}
+      {/* Message */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.8 }}
+        className="text-gray-500 text-center mt-6 flex items-center gap-2"
+      >
+        <Rocket className="w-4 h-4" />
+        <span>What a year of growth! 🎉</span>
+      </motion.p>
     </div>
   );
 }

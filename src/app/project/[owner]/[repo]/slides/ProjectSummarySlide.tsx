@@ -1,99 +1,66 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Twitter, RotateCcw, Star, GitFork, Users, Package, Images, Loader2 } from "lucide-react";
-import type { ProjectData } from "../page";
+import { Download, Twitter, RotateCcw, Star, GitPullRequest, Users, Tag, Flame, Images, Loader2 } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
 
+interface ProjectData {
+  name: string;
+  fullName: string;
+  description: string;
+  owner: {
+    login: string;
+    avatarUrl: string;
+  };
+  stars: number;
+  starsGained2025: number;
+  forks: number;
+  forksGained2025: number;
+  openIssues: number;
+  watchers: number;
+  createdAt: string;
+  primaryLanguage: string;
+  contributors: number;
+  newContributors2025: number;
+  totalPRs2025: number;
+  mergedPRs2025: number;
+  closedPRs2025: number;
+  totalIssues2025: number;
+  closedIssues2025: number;
+  totalCommits2025: number;
+  releases2025: Array<{
+    name: string;
+    tag: string;
+    date: string;
+    downloads: number;
+  }>;
+  totalDownloads2025: number;
+  totalReleases2025: number;
+  trendData: {
+    stars: Array<{ month: string; value: number }>;
+    commits: Array<{ month: string; value: number }>;
+  };
+  personality: {
+    title: string;
+    emoji: string;
+    tagline: string;
+    description: string;
+  };
+}
+
 interface Props {
   data: ProjectData;
-  onNext: () => void;
+  onPrev: () => void;
   onNavigateToSlide?: (index: number) => void;
   totalSlides?: number;
 }
 
-// CSS override to fix oklab/lab colors for html2canvas
-const CSS_COLOR_FIX = `
-  * {
-    --tw-gradient-from: #10b981 !important;
-    --tw-gradient-to: #06b6d4 !important;
-    --tw-gradient-stops: #10b981, #06b6d4 !important;
-  }
-  .text-emerald-400 { color: #34d399 !important; }
-  .text-cyan-400 { color: #22d3ee !important; }
-  .text-amber-400 { color: #fbbf24 !important; }
-  .text-yellow-400 { color: #facc15 !important; }
-  .text-purple-400 { color: #c084fc !important; }
-  .text-pink-400 { color: #f472b6 !important; }
-  .text-green-400 { color: #4ade80 !important; }
-  .text-blue-400 { color: #60a5fa !important; }
-  .text-red-400 { color: #f87171 !important; }
-  .text-orange-400 { color: #fb923c !important; }
-  .text-gray-400 { color: #9ca3af !important; }
-  .text-gray-500 { color: #6b7280 !important; }
-  .text-gray-600 { color: #4b5563 !important; }
-  .text-white { color: #ffffff !important; }
-  .bg-emerald-500 { background-color: #10b981 !important; }
-  .bg-cyan-500 { background-color: #06b6d4 !important; }
-  .bg-purple-500 { background-color: #a855f7 !important; }
-  .bg-pink-500 { background-color: #ec4899 !important; }
-  .bg-amber-500 { background-color: #f59e0b !important; }
-  .bg-yellow-500 { background-color: #eab308 !important; }
-  .bg-yellow-500\\/10 { background-color: rgba(234, 179, 8, 0.1) !important; }
-  .bg-emerald-500\\/10 { background-color: rgba(16, 185, 129, 0.1) !important; }
-  .bg-cyan-500\\/10 { background-color: rgba(6, 182, 212, 0.1) !important; }
-  .bg-purple-500\\/10 { background-color: rgba(168, 85, 247, 0.1) !important; }
-  .bg-amber-500\\/10 { background-color: rgba(245, 158, 11, 0.1) !important; }
-  .bg-green-500\\/10 { background-color: rgba(34, 197, 94, 0.1) !important; }
-  .from-emerald-500 { --tw-gradient-from: #10b981 !important; }
-  .to-cyan-500 { --tw-gradient-to: #06b6d4 !important; }
-  .from-emerald-600 { --tw-gradient-from: #059669 !important; }
-  .to-cyan-600 { --tw-gradient-to: #0891b2 !important; }
-  .from-purple-500 { --tw-gradient-from: #a855f7 !important; }
-  .to-pink-500 { --tw-gradient-to: #ec4899 !important; }
-  .from-amber-600 { --tw-gradient-from: #d97706 !important; }
-  .to-orange-600 { --tw-gradient-to: #ea580c !important; }
-  .from-yellow-600 { --tw-gradient-from: #ca8a04 !important; }
-  .to-amber-600 { --tw-gradient-to: #d97706 !important; }
-  .border-emerald-500\\/20 { border-color: rgba(16, 185, 129, 0.2) !important; }
-  .border-cyan-500\\/20 { border-color: rgba(6, 182, 212, 0.2) !important; }
-  .border-purple-500\\/20 { border-color: rgba(168, 85, 247, 0.2) !important; }
-  .border-white\\/5 { border-color: rgba(255, 255, 255, 0.05) !important; }
-  .border-white\\/10 { border-color: rgba(255, 255, 255, 0.1) !important; }
-  .bg-white\\/5 { background-color: rgba(255, 255, 255, 0.05) !important; }
-  .bg-white\\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
-  .bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
-  .bg-gradient-to-br { background-image: linear-gradient(to bottom right, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
-  .bg-gradient-to-t { background-image: linear-gradient(to top, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
-  .bg-\\[\\#0a0f0d\\] { background-color: #0a0f0d !important; }
-  .bg-\\[\\#0d1512\\] { background-color: #0d1512 !important; }
-  .bg-mesh { background-color: #0a0f0d !important; }
-  .text-gradient { 
-    background: linear-gradient(90deg, #10b981, #06b6d4) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-  }
-`;
-
 export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlides = 7 }: Props) {
-  const cardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const { repository, stats, releases, personality } = data;
-
-  // Safely get all values
-  const repoName = repository?.name || "Repository";
-  const repoOwner = repository?.owner?.login || "owner";
-  const ownerAvatar = repository?.owner?.avatarUrl || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
-  const totalStars = stats?.stars?.total || 0;
-  const totalForks = stats?.forks?.total || 0;
-  const contributorsTotal = stats?.contributors?.total || 0;
-  const totalDownloads = releases?.totalDownloads2025 || 0;
-  const personalityTitle = personality?.title || "Growing Project";
-  const personalityEmoji = personality?.emoji || "🌱";
 
   useEffect(() => {
     const duration = 4000;
@@ -117,126 +84,227 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
     return () => clearInterval(interval);
   }, []);
 
+  // Generate card image using Canvas API
+  const generateCardImage = async (): Promise<string> => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d")!;
+    
+    const width = 400 * 3;
+    const height = 560 * 3;
+    canvas.width = width;
+    canvas.height = height;
+    
+    const scale = 3;
+    
+    // Background
+    ctx.fillStyle = "#0a0f0d";
+    ctx.fillRect(0, 0, width, height);
+    
+    // Header gradient
+    const headerGradient = ctx.createLinearGradient(0, 0, width, 200 * scale);
+    headerGradient.addColorStop(0, "#059669");
+    headerGradient.addColorStop(0.5, "#0d9488");
+    headerGradient.addColorStop(1, "#0891b2");
+    ctx.fillStyle = headerGradient;
+    roundRect(ctx, 20 * scale, 20 * scale, width - 40 * scale, 180 * scale, 24 * scale);
+    ctx.fill();
+    
+    // Avatar
+    try {
+      const avatar = await loadImage(data.owner.avatarUrl);
+      const avatarSize = 70 * scale;
+      const avatarX = (width - avatarSize) / 2;
+      const avatarY = 45 * scale;
+      
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+      ctx.restore();
+      
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 4 * scale;
+      ctx.beginPath();
+      ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+      ctx.stroke();
+    } catch (e) {
+      ctx.fillStyle = "#1f2937";
+      ctx.beginPath();
+      ctx.arc(width/2, 80 * scale, 35 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Repo name
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `bold ${18 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText(data.name, width/2, 150 * scale);
+    
+    // Subtitle
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.font = `${12 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText("2025 Project Wrapped", width/2, 175 * scale);
+    
+    // Stats box
+    ctx.fillStyle = "#0d1512";
+    roundRect(ctx, 30 * scale, 205 * scale, width - 60 * scale, 190 * scale, 16 * scale);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(16, 185, 129, 0.3)";
+    ctx.lineWidth = 1 * scale;
+    ctx.stroke();
+    
+    // Stats
+    const stats = [
+      { label: "Stars Gained", value: (data.starsGained2025 || 0).toLocaleString(), icon: "⭐" },
+      { label: "Contributors", value: (data.contributors || 0).toLocaleString(), icon: "👥" },
+      { label: "PRs Merged", value: (data.mergedPRs2025 || 0).toLocaleString(), icon: "🔀" },
+      { label: "Downloads", value: formatNumber(data.totalDownloads2025 || 0), icon: "📦" },
+      { label: "Commits", value: (data.totalCommits2025 || 0).toLocaleString(), icon: "📝" },
+      { label: "Releases", value: (data.totalReleases2025 || 0).toLocaleString(), icon: "🏷️" },
+    ];
+    
+    const statWidth = (width - 80 * scale) / 2;
+    const statHeight = 60 * scale;
+    
+    stats.forEach((stat, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = 40 * scale + col * statWidth;
+      const y = 215 * scale + row * statHeight;
+      
+      ctx.fillStyle = "rgba(255,255,255,0.05)";
+      roundRect(ctx, x + 5 * scale, y + 5 * scale, statWidth - 10 * scale, statHeight - 10 * scale, 8 * scale);
+      ctx.fill();
+      
+      ctx.font = `${14 * scale}px system-ui`;
+      ctx.textAlign = "left";
+      ctx.fillText(stat.icon, x + 15 * scale, y + 28 * scale);
+      
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${15 * scale}px system-ui, -apple-system, sans-serif`;
+      ctx.fillText(stat.value, x + 15 * scale, y + 48 * scale);
+      
+      ctx.fillStyle = "#6b7280";
+      ctx.font = `${8 * scale}px system-ui, -apple-system, sans-serif`;
+      ctx.fillText(stat.label, x + 40 * scale, y + 28 * scale);
+    });
+    
+    // Personality
+    ctx.fillStyle = "#6b7280";
+    ctx.font = `${10 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.fillText("Project Personality", 40 * scale, 420 * scale);
+    
+    ctx.fillStyle = "#10b981";
+    ctx.font = `bold ${13 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText(`${data.personality.title} ${data.personality.emoji}`, 40 * scale, 440 * scale);
+    
+    // Kubesimplify logo
+    try {
+      const logo = await loadImage("/images/kubesimplify-logo.png");
+      ctx.drawImage(logo, width - 80 * scale, 405 * scale, 50 * scale, 50 * scale);
+    } catch (e) {}
+    
+    // Footer line
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth = 1 * scale;
+    ctx.beginPath();
+    ctx.moveTo(40 * scale, 470 * scale);
+    ctx.lineTo(width - 40 * scale, 470 * scale);
+    ctx.stroke();
+    
+    // Footer
+    ctx.fillStyle = "#10b981";
+    ctx.font = `${10 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.fillText("Powered by Kubesimplify", 40 * scale, 495 * scale);
+    
+    ctx.fillStyle = "#6b7280";
+    ctx.textAlign = "right";
+    ctx.fillText("github-wrapped-five.vercel.app", width - 40 * scale, 495 * scale);
+    
+    return canvas.toDataURL("image/png");
+  };
+
   const handleDownload = async () => {
-    if (!cardRef.current || downloading) return;
+    if (downloading) return;
 
     setDownloading(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
+      const imageUrl = await generateCardImage();
       
-      // Add CSS fix
-      const style = document.createElement("style");
-      style.textContent = CSS_COLOR_FIX;
-      document.head.appendChild(style);
-      
-      await new Promise(r => setTimeout(r, 100));
-      
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: "#0a0f0d",
-        scale: 3,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-      });
-
-      // Remove CSS fix
-      document.head.removeChild(style);
-
       const link = document.createElement("a");
-      link.download = `github-wrapped-2025-${repoOwner}-${repoName}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.download = `github-wrapped-2025-${data.fullName.replace("/", "-")}.png`;
+      link.href = imageUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (e) {
       console.error("Export failed:", e);
+      alert("Download failed. Please try again.");
     } finally {
       setDownloading(false);
     }
   };
 
   const handleDownloadAllSlides = async () => {
-    if (downloadingAll || !onNavigateToSlide) {
-      return;
-    }
+    if (downloadingAll || !onNavigateToSlide) return;
     
     setDownloadingAll(true);
     setDownloadProgress(0);
     
-    // Add CSS fix for all slides
-    const style = document.createElement("style");
-    style.id = "html2canvas-color-fix";
-    style.textContent = CSS_COLOR_FIX;
-    document.head.appendChild(style);
-    
     try {
-      const html2canvas = (await import("html2canvas")).default;
+      const slideData = [
+        { title: data.name, subtitle: "2025 Project Wrapped", emoji: "📦", stat: "", color1: "#059669", color2: "#0891b2" },
+        { title: "Stars Gained", subtitle: "Community recognition", emoji: "⭐", stat: (data.starsGained2025 || 0).toLocaleString(), color1: "#ca8a04", color2: "#d97706" },
+        { title: "Contributors", subtitle: `${data.newContributors2025 || 0} new in 2025`, emoji: "👥", stat: (data.contributors || 0).toLocaleString(), color1: "#059669", color2: "#0d9488" },
+        { title: "Releases", subtitle: `${formatNumber(data.totalDownloads2025 || 0)} downloads`, emoji: "🏷️", stat: (data.totalReleases2025 || 0).toLocaleString(), color1: "#7c3aed", color2: "#a855f7" },
+        { title: "Activity", subtitle: `${(data.totalPRs2025 || 0).toLocaleString()} PRs, ${(data.totalIssues2025 || 0).toLocaleString()} issues`, emoji: "📊", stat: `${(data.totalCommits2025 || 0).toLocaleString()} commits`, color1: "#0891b2", color2: "#2563eb" },
+        { title: "Impact", subtitle: `${(data.forksGained2025 || 0).toLocaleString()} forks in 2025`, emoji: "🚀", stat: `${(data.stars || 0).toLocaleString()} total stars`, color1: "#d97706", color2: "#ea580c" },
+        { title: data.personality.title, subtitle: data.personality.tagline, emoji: data.personality.emoji, stat: "", color1: "#059669", color2: "#0891b2" },
+      ];
       
-      for (let i = 0; i < totalSlides; i++) {
-        setDownloadProgress(Math.round(((i + 1) / totalSlides) * 100));
+      for (let i = 0; i < slideData.length; i++) {
+        setDownloadProgress(Math.round(((i + 1) / slideData.length) * 100));
         
-        // Navigate to slide
-        onNavigateToSlide(i);
+        const slide = slideData[i];
+        const imageUrl = await generateSlideImage(slide, data.owner.avatarUrl);
         
-        // Wait for animation to complete
-        await new Promise(r => setTimeout(r, 1500));
-        
-        // Find the slide content area
-        const slideContent = document.querySelector('[data-slide-content]');
-        if (!slideContent) {
-          console.log("Slide content not found for slide", i);
-          continue;
-        }
-        
-        // Capture the slide
-        const canvas = await html2canvas(slideContent as HTMLElement, {
-          backgroundColor: "#0a0f0d",
-          scale: 2,
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-        });
-        
-        // Download
         const link = document.createElement("a");
-        link.download = `github-wrapped-2025-${repoOwner}-${repoName}-slide-${i + 1}.png`;
-        link.href = canvas.toDataURL("image/png");
+        link.download = `github-wrapped-2025-${data.fullName.replace("/", "-")}-slide-${i + 1}.png`;
+        link.href = imageUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        // Small delay between downloads
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 300));
       }
-      
-      // Return to summary slide
-      onNavigateToSlide(totalSlides - 1);
       
     } catch (e) {
       console.error("Export failed:", e);
       alert("Download failed. Please try again.");
     } finally {
-      // Remove CSS fix
-      const styleEl = document.getElementById("html2canvas-color-fix");
-      if (styleEl) document.head.removeChild(styleEl);
-      
       setDownloadingAll(false);
       setDownloadProgress(0);
     }
   };
 
   const handleShare = () => {
-    const text = `🎁 ${repoOwner}/${repoName} GitHub Wrapped 2025:\n\n⭐ ${totalStars.toLocaleString()} stars\n🍴 ${totalForks.toLocaleString()} forks\n👥 ${contributorsTotal} contributors\n📥 ${totalDownloads.toLocaleString()} downloads\n\n${personalityEmoji} "${personalityTitle}"\n\nGet yours at https://github-wrapped-five.vercel.app`;
+    const text = `📦 ${data.name} - 2025 Project Wrapped:\n\n⭐ ${(data.starsGained2025 || 0).toLocaleString()} stars gained\n👥 ${(data.contributors || 0).toLocaleString()} contributors\n🔀 ${(data.mergedPRs2025 || 0).toLocaleString()} PRs merged\n📦 ${formatNumber(data.totalDownloads2025 || 0)} downloads\n\n${data.personality.emoji} "${data.personality.title}"\n\nGet yours at https://github-wrapped-five.vercel.app`;
 
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
 
-  const summaryStats = [
-    { icon: Star, label: "Stars", value: totalStars.toLocaleString(), color: "#eab308" },
-    { icon: GitFork, label: "Forks", value: totalForks.toLocaleString(), color: "#10b981" },
-    { icon: Users, label: "Contributors", value: contributorsTotal.toLocaleString(), color: "#06b6d4" },
-    { icon: Package, label: "Downloads", value: totalDownloads.toLocaleString(), color: "#a855f7" },
+  const stats = [
+    { icon: Star, label: "Stars Gained", value: (data.starsGained2025 || 0).toLocaleString(), color: "#eab308" },
+    { icon: Users, label: "Contributors", value: (data.contributors || 0).toLocaleString(), color: "#10b981" },
+    { icon: GitPullRequest, label: "PRs Merged", value: (data.mergedPRs2025 || 0).toLocaleString(), color: "#06b6d4" },
+    { icon: Tag, label: "Downloads", value: formatNumber(data.totalDownloads2025 || 0), color: "#a855f7" },
+    { icon: Flame, label: "Commits", value: (data.totalCommits2025 || 0).toLocaleString(), color: "#f59e0b" },
+    { icon: Tag, label: "Releases", value: (data.totalReleases2025 || 0).toLocaleString(), color: "#ec4899" },
   ];
 
   return (
@@ -244,86 +312,68 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
       <motion.h1
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-4xl md:text-5xl font-black text-center mb-6"
-        style={{ color: "#ffffff" }}
+        className="text-3xl md:text-4xl font-black text-center mb-5 text-white"
       >
         That's a wrap! 🎬
       </motion.h1>
 
-      {/* Shareable Card */}
+      {/* Visual Card Preview */}
       <motion.div
-        ref={cardRef}
         initial={{ y: 50, opacity: 0, rotateX: 20 }}
         animate={{ y: 0, opacity: 1, rotateX: 0 }}
         transition={{ delay: 0.3, type: "spring" }}
         className="relative w-full max-w-sm overflow-hidden rounded-3xl shadow-2xl"
         style={{ backgroundColor: "#0a0f0d" }}
       >
-        {/* Header */}
         <div 
           className="relative p-5 pb-14"
           style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)" }}
         >
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}
-          />
           <div className="relative flex justify-center">
             <img
-              src={ownerAvatar}
-              alt={repoOwner}
-              crossOrigin="anonymous"
-              className="w-16 h-16 rounded-full border-4 shadow-xl"
-              style={{ borderColor: "#ffffff" }}
+              src={data.owner.avatarUrl}
+              alt={data.owner.login}
+              className="w-16 h-16 rounded-full border-4 border-white shadow-xl"
             />
           </div>
-          <h2 className="relative text-lg font-black text-center mt-2" style={{ color: "#ffffff" }}>{repoName}</h2>
-          <p className="relative text-center text-xs" style={{ color: "rgba(255,255,255,0.8)" }}>by {repoOwner}</p>
-          <p className="relative text-center text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.6)" }}>2025 GitHub Wrapped</p>
+          <h2 className="relative text-lg font-black text-white text-center mt-2">{data.name}</h2>
+          <p className="relative text-white/80 text-center text-xs">2025 Project Wrapped</p>
         </div>
 
-        {/* Stats */}
-        <div className="relative -mt-8 mx-3">
+        <div className="relative -mt-8 mx-4">
           <div 
-            className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl"
+            className="grid grid-cols-2 gap-1.5 p-2.5 rounded-xl"
             style={{ backgroundColor: "#0d1512", border: "1px solid rgba(16, 185, 129, 0.2)" }}
           >
-            {summaryStats.map((stat) => (
-              <div key={stat.label} className="p-2 rounded-xl text-center" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
-                <stat.icon className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: stat.color }} />
-                <div className="text-base font-bold" style={{ color: "#ffffff" }}>{stat.value}</div>
-                <div className="text-[9px]" style={{ color: "#6b7280" }}>{stat.label}</div>
+            {stats.map((stat) => (
+              <div key={stat.label} className="p-2 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
+                <stat.icon className="w-3 h-3 mb-1" style={{ color: stat.color }} />
+                <div className="text-sm font-bold text-white">{stat.value}</div>
+                <div className="text-[8px] text-gray-500">{stat.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Personality & Kubesimplify */}
         <div className="p-3 pt-2 pb-4">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="text-[9px] mb-0.5" style={{ color: "#6b7280" }}>Project Type</div>
-              <div 
-                className="text-xs font-bold"
-                style={{ color: "#10b981" }}
-              >
-                {personalityTitle} {personalityEmoji}
+              <div className="text-[8px] text-gray-500 mb-0.5">Personality</div>
+              <div className="text-xs font-bold text-emerald-400">
+                {data.personality.title} {data.personality.emoji}
               </div>
             </div>
             <img 
               src="/images/kubesimplify-logo.png" 
               alt="Kubesimplify" 
               className="w-10 h-10 object-contain"
-              crossOrigin="anonymous"
             />
           </div>
-          <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="text-[10px] font-medium" style={{ color: "#10b981" }}>
+          <div className="flex items-center justify-between pt-2 border-t border-white/10">
+            <div className="text-[10px] font-medium text-emerald-400">
               Powered by Kubesimplify
             </div>
-            <div className="text-[9px] font-mono" style={{ color: "#6b7280" }}>
+            <div className="text-[8px] font-mono text-gray-500">
               github-wrapped-five.vercel.app
             </div>
           </div>
@@ -335,26 +385,22 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8 }}
-        className="flex flex-wrap justify-center gap-3 mt-6"
+        className="flex flex-wrap justify-center gap-3 mt-5"
       >
         <button
           onClick={handleDownload}
           disabled={downloading}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
           style={{ background: "linear-gradient(90deg, #10b981, #06b6d4)" }}
         >
-          {downloading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4" />
-          )}
+          {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {downloading ? "Saving..." : "Download"}
         </button>
 
         <button
           onClick={handleDownloadAllSlides}
-          disabled={downloadingAll || !onNavigateToSlide}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
+          disabled={downloadingAll}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
           style={{ background: "linear-gradient(90deg, #a855f7, #ec4899)" }}
         >
           {downloadingAll ? (
@@ -372,7 +418,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
 
         <button
           onClick={handleShare}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all text-sm"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-semibold transition-all text-sm"
           style={{ backgroundColor: "#1DA1F2" }}
         >
           <Twitter className="w-4 h-4" />
@@ -381,8 +427,8 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
 
         <Link
           href="/"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all text-sm"
-          style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(16, 185, 129, 0.2)" }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-semibold transition-all text-sm border"
+          style={{ backgroundColor: "rgba(255,255,255,0.05)", borderColor: "rgba(16, 185, 129, 0.2)" }}
         >
           <RotateCcw className="w-4 h-4" />
           New
@@ -393,11 +439,108 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="mt-4 text-center text-xs max-w-sm"
-        style={{ color: "#6b7280" }}
+        className="mt-3 text-gray-500 text-center text-xs max-w-sm"
       >
-        💡 <span style={{ color: "#a855f7" }}>All Slides</span> downloads each slide as shown
+        💡 <span className="text-purple-400">All Slides</span> generates 7 carousel images
       </motion.p>
     </div>
   );
+}
+
+// Helper functions
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+  return num.toLocaleString();
+}
+
+async function generateSlideImage(
+  slide: { title: string; subtitle: string; emoji: string; stat: string; color1: string; color2: string },
+  avatarUrl: string
+): Promise<string> {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
+  
+  const size = 1080;
+  canvas.width = size;
+  canvas.height = size;
+  
+  // Background
+  ctx.fillStyle = "#0a0f0d";
+  ctx.fillRect(0, 0, size, size);
+  
+  // Main gradient card
+  const gradient = ctx.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, slide.color1);
+  gradient.addColorStop(1, slide.color2);
+  ctx.fillStyle = gradient;
+  roundRect(ctx, 40, 40, size - 80, size - 80, 48);
+  ctx.fill();
+  
+  // Pattern overlay
+  ctx.fillStyle = "rgba(255,255,255,0.05)";
+  for (let i = 0; i < 20; i++) {
+    for (let j = 0; j < 20; j++) {
+      if ((i + j) % 3 === 0) {
+        ctx.fillRect(60 + i * 50, 60 + j * 50, 4, 4);
+      }
+    }
+  }
+  
+  // Emoji
+  ctx.font = "120px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText(slide.emoji, size/2, 280);
+  
+  // Title
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 64px system-ui, -apple-system, sans-serif";
+  ctx.fillText(slide.title, size/2, 400);
+  
+  // Subtitle
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.font = "32px system-ui, -apple-system, sans-serif";
+  ctx.fillText(slide.subtitle, size/2, 460);
+  
+  // Stat
+  if (slide.stat) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 140px system-ui, -apple-system, sans-serif";
+    ctx.fillText(slide.stat, size/2, 650);
+  }
+  
+  // Footer
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.font = "18px system-ui, -apple-system, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("Powered by Kubesimplify", 80, size - 60);
+  
+  ctx.textAlign = "right";
+  ctx.fillText("github-wrapped-five.vercel.app", size - 80, size - 60);
+  
+  return canvas.toDataURL("image/png");
 }

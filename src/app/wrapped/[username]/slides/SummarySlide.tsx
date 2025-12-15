@@ -14,61 +14,7 @@ interface Props {
   totalSlides?: number;
 }
 
-// CSS override to fix oklab/lab colors for html2canvas
-const CSS_COLOR_FIX = `
-  * {
-    --tw-gradient-from: #10b981 !important;
-    --tw-gradient-to: #06b6d4 !important;
-    --tw-gradient-stops: #10b981, #06b6d4 !important;
-  }
-  .text-emerald-400 { color: #34d399 !important; }
-  .text-cyan-400 { color: #22d3ee !important; }
-  .text-amber-400 { color: #fbbf24 !important; }
-  .text-yellow-400 { color: #facc15 !important; }
-  .text-purple-400 { color: #c084fc !important; }
-  .text-pink-400 { color: #f472b6 !important; }
-  .text-green-400 { color: #4ade80 !important; }
-  .text-blue-400 { color: #60a5fa !important; }
-  .text-red-400 { color: #f87171 !important; }
-  .text-orange-400 { color: #fb923c !important; }
-  .text-gray-400 { color: #9ca3af !important; }
-  .text-gray-500 { color: #6b7280 !important; }
-  .text-gray-600 { color: #4b5563 !important; }
-  .text-white { color: #ffffff !important; }
-  .bg-emerald-500 { background-color: #10b981 !important; }
-  .bg-cyan-500 { background-color: #06b6d4 !important; }
-  .bg-purple-500 { background-color: #a855f7 !important; }
-  .bg-pink-500 { background-color: #ec4899 !important; }
-  .bg-amber-500 { background-color: #f59e0b !important; }
-  .bg-yellow-500 { background-color: #eab308 !important; }
-  .from-emerald-500 { --tw-gradient-from: #10b981 !important; }
-  .to-cyan-500 { --tw-gradient-to: #06b6d4 !important; }
-  .from-emerald-600 { --tw-gradient-from: #059669 !important; }
-  .to-cyan-600 { --tw-gradient-to: #0891b2 !important; }
-  .from-purple-500 { --tw-gradient-from: #a855f7 !important; }
-  .to-pink-500 { --tw-gradient-to: #ec4899 !important; }
-  .from-amber-600 { --tw-gradient-from: #d97706 !important; }
-  .to-orange-600 { --tw-gradient-to: #ea580c !important; }
-  .border-emerald-500\\/20 { border-color: rgba(16, 185, 129, 0.2) !important; }
-  .border-white\\/5 { border-color: rgba(255, 255, 255, 0.05) !important; }
-  .border-white\\/10 { border-color: rgba(255, 255, 255, 0.1) !important; }
-  .bg-white\\/5 { background-color: rgba(255, 255, 255, 0.05) !important; }
-  .bg-white\\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
-  .bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
-  .bg-gradient-to-br { background-image: linear-gradient(to bottom right, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
-  .bg-gradient-to-t { background-image: linear-gradient(to top, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
-  .bg-\\[\\#0a0f0d\\] { background-color: #0a0f0d !important; }
-  .bg-\\[\\#0d1512\\] { background-color: #0d1512 !important; }
-  .bg-mesh { background-color: #0a0f0d !important; }
-  .text-gradient { 
-    background: linear-gradient(90deg, #10b981, #06b6d4) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-  }
-`;
-
 export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 }: Props) {
-  const cardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -95,39 +41,175 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
     return () => clearInterval(interval);
   }, []);
 
+  // Generate card image using Canvas API (no DOM capture)
+  const generateCardImage = async (): Promise<string> => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d")!;
+    
+    // Card dimensions (3x scale for quality)
+    const width = 400 * 3;
+    const height = 520 * 3;
+    canvas.width = width;
+    canvas.height = height;
+    
+    const scale = 3;
+    
+    // Background
+    ctx.fillStyle = "#0a0f0d";
+    ctx.fillRect(0, 0, width, height);
+    
+    // Header gradient
+    const headerGradient = ctx.createLinearGradient(0, 0, width, 200 * scale);
+    headerGradient.addColorStop(0, "#059669");
+    headerGradient.addColorStop(0.5, "#0d9488");
+    headerGradient.addColorStop(1, "#0891b2");
+    ctx.fillStyle = headerGradient;
+    roundRect(ctx, 20 * scale, 20 * scale, width - 40 * scale, 180 * scale, 24 * scale);
+    ctx.fill();
+    
+    // Avatar
+    try {
+      const avatar = await loadImage(data.user.avatarUrl);
+      const avatarSize = 80 * scale;
+      const avatarX = (width - avatarSize) / 2;
+      const avatarY = 50 * scale;
+      
+      // Avatar circle clip
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+      ctx.restore();
+      
+      // Avatar border
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 4 * scale;
+      ctx.beginPath();
+      ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+      ctx.stroke();
+    } catch (e) {
+      // Draw placeholder if avatar fails
+      ctx.fillStyle = "#1f2937";
+      ctx.beginPath();
+      ctx.arc(width/2, 90 * scale, 40 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Name
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `bold ${22 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText(data.user.name || data.user.login, width/2, 160 * scale);
+    
+    // Subtitle
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.font = `${14 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText("2025 GitHub Wrapped", width/2, 185 * scale);
+    
+    // Stats box
+    ctx.fillStyle = "#0d1512";
+    roundRect(ctx, 30 * scale, 210 * scale, width - 60 * scale, 180 * scale, 16 * scale);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(16, 185, 129, 0.3)";
+    ctx.lineWidth = 1 * scale;
+    ctx.stroke();
+    
+    // Stats
+    const stats = [
+      { label: "Contributions", value: data.contributions.total.toLocaleString(), color: "#10b981", icon: "📊" },
+      { label: "Longest Streak", value: `${data.activity.longestStreak} days`, color: "#f59e0b", icon: "🔥" },
+      { label: "Stars Earned", value: data.impact.totalStars.toLocaleString(), color: "#eab308", icon: "⭐" },
+      { label: "Top Language", value: data.languages.top?.name || "Code", color: "#06b6d4", icon: "💻" },
+    ];
+    
+    const statWidth = (width - 80 * scale) / 2;
+    const statHeight = 75 * scale;
+    
+    stats.forEach((stat, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = 40 * scale + col * statWidth;
+      const y = 220 * scale + row * statHeight;
+      
+      // Stat background
+      ctx.fillStyle = "rgba(255,255,255,0.05)";
+      roundRect(ctx, x + 5 * scale, y + 5 * scale, statWidth - 10 * scale, statHeight - 10 * scale, 8 * scale);
+      ctx.fill();
+      
+      // Icon
+      ctx.font = `${16 * scale}px system-ui`;
+      ctx.fillText(stat.icon, x + 20 * scale, y + 30 * scale);
+      
+      // Value
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${18 * scale}px system-ui, -apple-system, sans-serif`;
+      ctx.textAlign = "left";
+      ctx.fillText(stat.value, x + 20 * scale, y + 52 * scale);
+      
+      // Label
+      ctx.fillStyle = "#6b7280";
+      ctx.font = `${10 * scale}px system-ui, -apple-system, sans-serif`;
+      ctx.fillText(stat.label, x + 20 * scale, y + 68 * scale);
+    });
+    
+    // Personality section
+    ctx.fillStyle = "#6b7280";
+    ctx.font = `${10 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.fillText("Personality", 40 * scale, 415 * scale);
+    
+    ctx.fillStyle = "#10b981";
+    ctx.font = `bold ${14 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText(`${data.personality.title} ${data.personality.emoji}`, 40 * scale, 435 * scale);
+    
+    // Kubesimplify logo placeholder
+    try {
+      const logo = await loadImage("/images/kubesimplify-logo.png");
+      ctx.drawImage(logo, width - 80 * scale, 400 * scale, 50 * scale, 50 * scale);
+    } catch (e) {
+      // Skip if logo fails to load
+    }
+    
+    // Footer line
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth = 1 * scale;
+    ctx.beginPath();
+    ctx.moveTo(40 * scale, 460 * scale);
+    ctx.lineTo(width - 40 * scale, 460 * scale);
+    ctx.stroke();
+    
+    // Footer text
+    ctx.fillStyle = "#10b981";
+    ctx.font = `${11 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.fillText("Powered by Kubesimplify", 40 * scale, 485 * scale);
+    
+    ctx.fillStyle = "#6b7280";
+    ctx.font = `${10 * scale}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "right";
+    ctx.fillText("github-wrapped-five.vercel.app", width - 40 * scale, 485 * scale);
+    
+    return canvas.toDataURL("image/png");
+  };
+
   const handleDownload = async () => {
-    if (!cardRef.current || downloading) return;
+    if (downloading) return;
 
     setDownloading(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
+      const imageUrl = await generateCardImage();
       
-      // Add CSS fix
-      const style = document.createElement("style");
-      style.textContent = CSS_COLOR_FIX;
-      document.head.appendChild(style);
-      
-      await new Promise(r => setTimeout(r, 100));
-      
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: "#0a0f0d",
-        scale: 3,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-      });
-
-      // Remove CSS fix
-      document.head.removeChild(style);
-
       const link = document.createElement("a");
       link.download = `github-wrapped-2025-${data.user.login}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.href = imageUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (e) {
       console.error("Export failed:", e);
+      alert("Download failed. Please try again.");
     } finally {
       setDownloading(false);
     }
@@ -141,63 +223,39 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
     setDownloadingAll(true);
     setDownloadProgress(0);
     
-    // Add CSS fix for all slides
-    const style = document.createElement("style");
-    style.id = "html2canvas-color-fix";
-    style.textContent = CSS_COLOR_FIX;
-    document.head.appendChild(style);
-    
     try {
-      const html2canvas = (await import("html2canvas")).default;
+      // Generate slide images using Canvas API
+      const slideData = [
+        { title: "GitHub Wrapped 2025", subtitle: data.user.name, emoji: "🎁", stat: "", color1: "#059669", color2: "#0891b2" },
+        { title: "Contributions", subtitle: "Your coding journey", emoji: "📊", stat: data.contributions.total.toLocaleString(), color1: "#059669", color2: "#0d9488" },
+        { title: "Longest Streak", subtitle: "Days of consistency", emoji: "🔥", stat: `${data.activity.longestStreak} days`, color1: "#d97706", color2: "#ea580c" },
+        { title: "Top Language", subtitle: data.languages.top?.name || "Code", emoji: "💻", stat: `${data.languages.top?.percentage || 0}%`, color1: "#0891b2", color2: "#2563eb" },
+        { title: "Activity", subtitle: `Most active: ${data.activity.busiestDay}`, emoji: "📅", stat: `${data.activity.totalActiveDays} active days`, color1: "#7c3aed", color2: "#a855f7" },
+        { title: "Stars Earned", subtitle: "Recognition", emoji: "⭐", stat: data.impact.totalStars.toLocaleString(), color1: "#ca8a04", color2: "#d97706" },
+        { title: data.personality.title, subtitle: data.personality.tagline || "Your coding style", emoji: data.personality.emoji, stat: "", color1: "#059669", color2: "#0891b2" },
+        { title: "That's a wrap!", subtitle: `@${data.user.login}`, emoji: "🎬", stat: `${data.contributions.total.toLocaleString()} contributions`, color1: "#059669", color2: "#0891b2" },
+      ];
       
-      for (let i = 0; i < totalSlides; i++) {
-        setDownloadProgress(Math.round(((i + 1) / totalSlides) * 100));
+      for (let i = 0; i < slideData.length; i++) {
+        setDownloadProgress(Math.round(((i + 1) / slideData.length) * 100));
         
-        // Navigate to slide
-        onNavigateToSlide(i);
+        const slide = slideData[i];
+        const imageUrl = await generateSlideImage(slide, data.user.avatarUrl);
         
-        // Wait for animation to complete
-        await new Promise(r => setTimeout(r, 1500));
-        
-        // Find the slide content area
-        const slideContent = document.querySelector('[data-slide-content]');
-        if (!slideContent) {
-          console.log("Slide content not found for slide", i);
-          continue;
-        }
-        
-        // Capture the slide
-        const canvas = await html2canvas(slideContent as HTMLElement, {
-          backgroundColor: "#0a0f0d",
-          scale: 2,
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-        });
-        
-        // Download
         const link = document.createElement("a");
         link.download = `github-wrapped-2025-${data.user.login}-slide-${i + 1}.png`;
-        link.href = canvas.toDataURL("image/png");
+        link.href = imageUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        // Small delay between downloads
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 300));
       }
-      
-      // Return to summary slide
-      onNavigateToSlide(totalSlides - 1);
       
     } catch (e) {
       console.error("Export failed:", e);
       alert("Download failed. Please try again.");
     } finally {
-      // Remove CSS fix
-      const styleEl = document.getElementById("html2canvas-color-fix");
-      if (styleEl) document.head.removeChild(styleEl);
-      
       setDownloadingAll(false);
       setDownloadProgress(0);
     }
@@ -222,46 +280,34 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
       <motion.h1
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-4xl md:text-5xl font-black text-center mb-6"
-        style={{ color: "#ffffff" }}
+        className="text-4xl md:text-5xl font-black text-center mb-6 text-white"
       >
         That's a wrap! 🎬
       </motion.h1>
 
-      {/* Shareable Card */}
+      {/* Visual Card Preview */}
       <motion.div
-        ref={cardRef}
         initial={{ y: 50, opacity: 0, rotateX: 20 }}
         animate={{ y: 0, opacity: 1, rotateX: 0 }}
         transition={{ delay: 0.3, type: "spring" }}
         className="relative w-full max-w-sm overflow-hidden rounded-3xl shadow-2xl"
         style={{ backgroundColor: "#0a0f0d" }}
       >
-        {/* Header */}
         <div 
           className="relative p-6 pb-16"
           style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)" }}
         >
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}
-          />
           <div className="relative flex justify-center">
             <img
               src={data.user.avatarUrl}
               alt={data.user.name}
-              crossOrigin="anonymous"
-              className="w-20 h-20 rounded-full border-4 shadow-xl"
-              style={{ borderColor: "#ffffff" }}
+              className="w-20 h-20 rounded-full border-4 border-white shadow-xl"
             />
           </div>
-          <h2 className="relative text-xl font-black text-center mt-3" style={{ color: "#ffffff" }}>{data.user.name}</h2>
-          <p className="relative text-center text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>2025 GitHub Wrapped</p>
+          <h2 className="relative text-xl font-black text-white text-center mt-3">{data.user.name}</h2>
+          <p className="relative text-white/80 text-center text-sm">2025 GitHub Wrapped</p>
         </div>
 
-        {/* Stats */}
         <div className="relative -mt-10 mx-4">
           <div 
             className="grid grid-cols-2 gap-2 p-3 rounded-2xl"
@@ -270,22 +316,18 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
             {stats.map((stat) => (
               <div key={stat.label} className="p-2 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
                 <stat.icon className="w-4 h-4 mb-1" style={{ color: stat.color }} />
-                <div className="text-base font-bold" style={{ color: "#ffffff" }}>{stat.value}</div>
-                <div className="text-[10px]" style={{ color: "#6b7280" }}>{stat.label}</div>
+                <div className="text-base font-bold text-white">{stat.value}</div>
+                <div className="text-[10px] text-gray-500">{stat.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Personality & Kubesimplify */}
         <div className="p-4 pt-3 pb-5">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="text-[10px] mb-0.5" style={{ color: "#6b7280" }}>Personality</div>
-              <div 
-                className="text-sm font-bold"
-                style={{ color: "#10b981" }}
-              >
+              <div className="text-[10px] text-gray-500 mb-0.5">Personality</div>
+              <div className="text-sm font-bold text-emerald-400">
                 {data.personality.title} {data.personality.emoji}
               </div>
             </div>
@@ -293,14 +335,13 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
               src="/images/kubesimplify-logo.png" 
               alt="Kubesimplify" 
               className="w-12 h-12 object-contain"
-              crossOrigin="anonymous"
             />
           </div>
-          <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="text-[11px] font-medium" style={{ color: "#10b981" }}>
+          <div className="flex items-center justify-between pt-2 border-t border-white/10">
+            <div className="text-[11px] font-medium text-emerald-400">
               Powered by Kubesimplify
             </div>
-            <div className="text-[10px] font-mono" style={{ color: "#6b7280" }}>
+            <div className="text-[10px] font-mono text-gray-500">
               github-wrapped-five.vercel.app
             </div>
           </div>
@@ -320,17 +361,13 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
           style={{ background: "linear-gradient(90deg, #10b981, #06b6d4)" }}
         >
-          {downloading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4" />
-          )}
+          {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {downloading ? "Saving..." : "Download"}
         </button>
 
         <button
           onClick={handleDownloadAllSlides}
-          disabled={downloadingAll || !onNavigateToSlide}
+          disabled={downloadingAll}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
           style={{ background: "linear-gradient(90deg, #a855f7, #ec4899)" }}
         >
@@ -358,8 +395,8 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
 
         <Link
           href="/"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all text-sm"
-          style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(16, 185, 129, 0.2)" }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all text-sm border"
+          style={{ backgroundColor: "rgba(255,255,255,0.05)", borderColor: "rgba(16, 185, 129, 0.2)" }}
         >
           <RotateCcw className="w-4 h-4" />
           New
@@ -370,11 +407,104 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="mt-4 text-center text-xs max-w-sm"
-        style={{ color: "#6b7280" }}
+        className="mt-4 text-gray-500 text-center text-xs max-w-sm"
       >
-        💡 <span style={{ color: "#a855f7" }}>All Slides</span> downloads each slide as shown
+        💡 <span className="text-purple-400">All Slides</span> generates 8 carousel images
       </motion.p>
     </div>
   );
+}
+
+// Helper functions
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function generateSlideImage(
+  slide: { title: string; subtitle: string; emoji: string; stat: string; color1: string; color2: string },
+  avatarUrl: string
+): Promise<string> {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
+  
+  // 1080x1080 for Instagram
+  const size = 1080;
+  canvas.width = size;
+  canvas.height = size;
+  
+  // Background
+  ctx.fillStyle = "#0a0f0d";
+  ctx.fillRect(0, 0, size, size);
+  
+  // Main gradient card
+  const gradient = ctx.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, slide.color1);
+  gradient.addColorStop(1, slide.color2);
+  ctx.fillStyle = gradient;
+  roundRect(ctx, 40, 40, size - 80, size - 80, 48);
+  ctx.fill();
+  
+  // Pattern overlay
+  ctx.fillStyle = "rgba(255,255,255,0.05)";
+  for (let i = 0; i < 20; i++) {
+    for (let j = 0; j < 20; j++) {
+      if ((i + j) % 3 === 0) {
+        ctx.fillRect(60 + i * 50, 60 + j * 50, 4, 4);
+      }
+    }
+  }
+  
+  // Emoji
+  ctx.font = "120px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText(slide.emoji, size/2, 280);
+  
+  // Title
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 64px system-ui, -apple-system, sans-serif";
+  ctx.fillText(slide.title, size/2, 400);
+  
+  // Subtitle
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.font = "32px system-ui, -apple-system, sans-serif";
+  ctx.fillText(slide.subtitle, size/2, 460);
+  
+  // Stat (if any)
+  if (slide.stat) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 140px system-ui, -apple-system, sans-serif";
+    ctx.fillText(slide.stat, size/2, 650);
+  }
+  
+  // Footer - Kubesimplify
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.font = "18px system-ui, -apple-system, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("Powered by Kubesimplify", 80, size - 60);
+  
+  // Footer - URL
+  ctx.textAlign = "right";
+  ctx.fillText("github-wrapped-five.vercel.app", size - 80, size - 60);
+  
+  return canvas.toDataURL("image/png");
 }

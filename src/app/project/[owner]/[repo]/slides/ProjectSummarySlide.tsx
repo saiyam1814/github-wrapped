@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { Download, Twitter, RotateCcw, Star, GitFork, Users, Package, Images, Loader2 } from "lucide-react";
 import type { ProjectData } from "../page";
 import Link from "next/link";
-import html2canvas from "html2canvas";
 import confetti from "canvas-confetti";
 
 interface Props {
@@ -60,6 +59,8 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
 
     setDownloading(true);
     try {
+      const html2canvas = (await import("html2canvas")).default;
+      
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: "#0a0f0d",
         scale: 3,
@@ -76,7 +77,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
       document.body.removeChild(link);
     } catch (e) {
       console.error("Export failed:", e);
-      alert("Download failed. Please try again.");
+      window.print();
     } finally {
       setDownloading(false);
     }
@@ -84,7 +85,6 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
 
   const handleDownloadAllSlides = async () => {
     if (downloadingAll || !onNavigateToSlide) {
-      console.log("Cannot download: downloadingAll=", downloadingAll, "onNavigateToSlide=", !!onNavigateToSlide);
       return;
     }
     
@@ -92,6 +92,8 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
     setDownloadProgress(0);
     
     try {
+      const html2canvas = (await import("html2canvas")).default;
+      
       for (let i = 0; i < totalSlides; i++) {
         setDownloadProgress(Math.round(((i + 1) / totalSlides) * 100));
         
@@ -134,7 +136,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
       
     } catch (e) {
       console.error("Export failed:", e);
-      alert("Download failed. Please try again.");
+      alert("Download failed. Your browser may not support this feature.");
     } finally {
       setDownloadingAll(false);
       setDownloadProgress(0);
@@ -149,10 +151,10 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
   };
 
   const summaryStats = [
-    { icon: Star, label: "Stars", value: totalStars.toLocaleString(), color: "text-yellow-400" },
-    { icon: GitFork, label: "Forks", value: totalForks.toLocaleString(), color: "text-emerald-400" },
-    { icon: Users, label: "Contributors", value: contributorsTotal.toLocaleString(), color: "text-cyan-400" },
-    { icon: Package, label: "Downloads", value: totalDownloads.toLocaleString(), color: "text-purple-400" },
+    { icon: Star, label: "Stars", value: totalStars.toLocaleString(), color: "#eab308" },
+    { icon: GitFork, label: "Forks", value: totalForks.toLocaleString(), color: "#10b981" },
+    { icon: Users, label: "Contributors", value: contributorsTotal.toLocaleString(), color: "#06b6d4" },
+    { icon: Package, label: "Downloads", value: totalDownloads.toLocaleString(), color: "#a855f7" },
   ];
 
   return (
@@ -165,7 +167,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         That's a wrap! 🎬
       </motion.h1>
 
-      {/* Shareable Card */}
+      {/* Shareable Card - Using inline styles for html2canvas compatibility */}
       <motion.div
         ref={cardRef}
         initial={{ y: 50, opacity: 0, rotateX: 20 }}
@@ -175,7 +177,10 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         style={{ backgroundColor: "#0a0f0d" }}
       >
         {/* Header */}
-        <div className="relative p-5 pb-14 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600">
+        <div 
+          className="relative p-5 pb-14"
+          style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)" }}
+        >
           <div
             className="absolute inset-0 opacity-10"
             style={{
@@ -187,22 +192,26 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
               src={ownerAvatar}
               alt={repoOwner}
               crossOrigin="anonymous"
-              className="w-16 h-16 rounded-full border-4 border-white shadow-xl"
+              className="w-16 h-16 rounded-full border-4 shadow-xl"
+              style={{ borderColor: "#ffffff" }}
             />
           </div>
-          <h2 className="relative text-lg font-black text-white text-center mt-2">{repoName}</h2>
-          <p className="relative text-white/80 text-center text-xs">by {repoOwner}</p>
-          <p className="relative text-white/60 text-center text-[10px] mt-0.5">2025 GitHub Wrapped</p>
+          <h2 className="relative text-lg font-black text-center mt-2" style={{ color: "#ffffff" }}>{repoName}</h2>
+          <p className="relative text-center text-xs" style={{ color: "rgba(255,255,255,0.8)" }}>by {repoOwner}</p>
+          <p className="relative text-center text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.6)" }}>2025 GitHub Wrapped</p>
         </div>
 
         {/* Stats */}
         <div className="relative -mt-8 mx-3">
-          <div className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-[#0d1512] border border-emerald-500/20">
+          <div 
+            className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl"
+            style={{ backgroundColor: "#0d1512", border: "1px solid rgba(16, 185, 129, 0.2)" }}
+          >
             {summaryStats.map((stat) => (
-              <div key={stat.label} className="p-2 rounded-xl bg-white/5 text-center">
-                <stat.icon className={`w-3.5 h-3.5 ${stat.color} mx-auto mb-0.5`} />
-                <div className="text-base font-bold text-white">{stat.value}</div>
-                <div className="text-[9px] text-gray-500">{stat.label}</div>
+              <div key={stat.label} className="p-2 rounded-xl text-center" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
+                <stat.icon className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: stat.color }} />
+                <div className="text-base font-bold" style={{ color: "#ffffff" }}>{stat.value}</div>
+                <div className="text-[9px]" style={{ color: "#6b7280" }}>{stat.label}</div>
               </div>
             ))}
           </div>
@@ -212,8 +221,16 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         <div className="p-3 pt-2 pb-4">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="text-[9px] text-gray-500 mb-0.5">Project Type</div>
-              <div className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+              <div className="text-[9px] mb-0.5" style={{ color: "#6b7280" }}>Project Type</div>
+              <div 
+                className="text-xs font-bold"
+                style={{ 
+                  background: "linear-gradient(90deg, #10b981, #06b6d4)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text"
+                }}
+              >
                 {personalityTitle} {personalityEmoji}
               </div>
             </div>
@@ -224,11 +241,11 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
               crossOrigin="anonymous"
             />
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-white/10">
-            <div className="text-[10px] text-emerald-400 font-medium">
+          <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+            <div className="text-[10px] font-medium" style={{ color: "#10b981" }}>
               Powered by Kubesimplify
             </div>
-            <div className="text-[9px] text-gray-500 font-mono">
+            <div className="text-[9px] font-mono" style={{ color: "#6b7280" }}>
               github-wrapped-five.vercel.app
             </div>
           </div>
@@ -245,7 +262,8 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         <button
           onClick={handleDownload}
           disabled={downloading}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold hover:shadow-lg hover:shadow-emerald-500/20 transition-all disabled:opacity-50 text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
+          style={{ background: "linear-gradient(90deg, #10b981, #06b6d4)" }}
         >
           {downloading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -258,7 +276,8 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         <button
           onClick={handleDownloadAllSlides}
           disabled={downloadingAll || !onNavigateToSlide}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50 text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
+          style={{ background: "linear-gradient(90deg, #a855f7, #ec4899)" }}
         >
           {downloadingAll ? (
             <>
@@ -275,7 +294,8 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
 
         <button
           onClick={handleShare}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1DA1F2] text-white font-semibold hover:bg-[#1a8cd8] transition-all text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all text-sm"
+          style={{ backgroundColor: "#1DA1F2" }}
         >
           <Twitter className="w-4 h-4" />
           Share
@@ -283,7 +303,8 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
 
         <Link
           href="/"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-emerald-500/20 text-white font-semibold hover:bg-white/10 transition-all text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all text-sm"
+          style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(16, 185, 129, 0.2)" }}
         >
           <RotateCcw className="w-4 h-4" />
           New
@@ -294,9 +315,10 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="mt-4 text-gray-500 text-center text-xs max-w-sm"
+        className="mt-4 text-center text-xs max-w-sm"
+        style={{ color: "#6b7280" }}
       >
-        💡 <span className="text-purple-400">All Slides</span> downloads each slide as shown
+        💡 <span style={{ color: "#a855f7" }}>All Slides</span> downloads each slide as shown
       </motion.p>
     </div>
   );

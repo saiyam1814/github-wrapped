@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { Download, Twitter, RotateCcw, Star, GitCommit, Flame, Code2, Images, Loader2 } from "lucide-react";
 import type { DeveloperData } from "../utils";
 import Link from "next/link";
-import html2canvas from "html2canvas";
 import confetti from "canvas-confetti";
 
 interface Props {
@@ -48,12 +47,19 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
 
     setDownloading(true);
     try {
+      // Dynamic import to avoid SSR issues
+      const html2canvas = (await import("html2canvas")).default;
+      
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: "#0a0f0d",
         scale: 3,
         logging: false,
         useCORS: true,
         allowTaint: true,
+        // Ignore computed styles that html2canvas can't handle
+        ignoreElements: (element) => {
+          return element.tagName === 'NOSCRIPT';
+        },
       });
 
       const link = document.createElement("a");
@@ -64,7 +70,8 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
       document.body.removeChild(link);
     } catch (e) {
       console.error("Export failed:", e);
-      alert("Download failed. Please try again.");
+      // Fallback: open print dialog
+      window.print();
     } finally {
       setDownloading(false);
     }
@@ -72,7 +79,6 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
 
   const handleDownloadAllSlides = async () => {
     if (downloadingAll || !onNavigateToSlide) {
-      console.log("Cannot download: downloadingAll=", downloadingAll, "onNavigateToSlide=", !!onNavigateToSlide);
       return;
     }
     
@@ -80,6 +86,8 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
     setDownloadProgress(0);
     
     try {
+      const html2canvas = (await import("html2canvas")).default;
+      
       for (let i = 0; i < totalSlides; i++) {
         setDownloadProgress(Math.round(((i + 1) / totalSlides) * 100));
         
@@ -122,7 +130,7 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
       
     } catch (e) {
       console.error("Export failed:", e);
-      alert("Download failed. Please try again.");
+      alert("Download failed. Your browser may not support this feature.");
     } finally {
       setDownloadingAll(false);
       setDownloadProgress(0);
@@ -137,10 +145,10 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
   };
 
   const stats = [
-    { icon: GitCommit, label: "Contributions", value: data.contributions.total.toLocaleString(), color: "text-emerald-400" },
-    { icon: Flame, label: "Longest Streak", value: `${data.activity.longestStreak} days`, color: "text-amber-400" },
-    { icon: Star, label: "Stars Earned", value: data.impact.totalStars.toLocaleString(), color: "text-yellow-400" },
-    { icon: Code2, label: "Top Language", value: data.languages.top?.name || "Code", color: "text-cyan-400" },
+    { icon: GitCommit, label: "Contributions", value: data.contributions.total.toLocaleString(), color: "#10b981" },
+    { icon: Flame, label: "Longest Streak", value: `${data.activity.longestStreak} days`, color: "#f59e0b" },
+    { icon: Star, label: "Stars Earned", value: data.impact.totalStars.toLocaleString(), color: "#eab308" },
+    { icon: Code2, label: "Top Language", value: data.languages.top?.name || "Code", color: "#06b6d4" },
   ];
 
   return (
@@ -153,7 +161,7 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         That's a wrap! 🎬
       </motion.h1>
 
-      {/* Shareable Card */}
+      {/* Shareable Card - Using inline styles for html2canvas compatibility */}
       <motion.div
         ref={cardRef}
         initial={{ y: 50, opacity: 0, rotateX: 20 }}
@@ -162,8 +170,11 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         className="relative w-full max-w-sm overflow-hidden rounded-3xl shadow-2xl"
         style={{ backgroundColor: "#0a0f0d" }}
       >
-        {/* Header */}
-        <div className="relative p-6 pb-16 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600">
+        {/* Header - Using inline gradient for compatibility */}
+        <div 
+          className="relative p-6 pb-16"
+          style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)" }}
+        >
           <div
             className="absolute inset-0 opacity-10"
             style={{
@@ -175,21 +186,25 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
               src={data.user.avatarUrl}
               alt={data.user.name}
               crossOrigin="anonymous"
-              className="w-20 h-20 rounded-full border-4 border-white shadow-xl"
+              className="w-20 h-20 rounded-full border-4 shadow-xl"
+              style={{ borderColor: "#ffffff" }}
             />
           </div>
-          <h2 className="relative text-xl font-black text-white text-center mt-3">{data.user.name}</h2>
-          <p className="relative text-white/80 text-center text-sm">2025 GitHub Wrapped</p>
+          <h2 className="relative text-xl font-black text-center mt-3" style={{ color: "#ffffff" }}>{data.user.name}</h2>
+          <p className="relative text-center text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>2025 GitHub Wrapped</p>
         </div>
 
         {/* Stats */}
         <div className="relative -mt-10 mx-4">
-          <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-[#0d1512] border border-emerald-500/20">
+          <div 
+            className="grid grid-cols-2 gap-2 p-3 rounded-2xl"
+            style={{ backgroundColor: "#0d1512", border: "1px solid rgba(16, 185, 129, 0.2)" }}
+          >
             {stats.map((stat) => (
-              <div key={stat.label} className="p-2 rounded-xl bg-white/5">
-                <stat.icon className={`w-4 h-4 ${stat.color} mb-1`} />
-                <div className="text-base font-bold text-white">{stat.value}</div>
-                <div className="text-[10px] text-gray-500">{stat.label}</div>
+              <div key={stat.label} className="p-2 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
+                <stat.icon className="w-4 h-4 mb-1" style={{ color: stat.color }} />
+                <div className="text-base font-bold" style={{ color: "#ffffff" }}>{stat.value}</div>
+                <div className="text-[10px]" style={{ color: "#6b7280" }}>{stat.label}</div>
               </div>
             ))}
           </div>
@@ -199,8 +214,16 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         <div className="p-4 pt-3 pb-5">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="text-[10px] text-gray-500 mb-0.5">Personality</div>
-              <div className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+              <div className="text-[10px] mb-0.5" style={{ color: "#6b7280" }}>Personality</div>
+              <div 
+                className="text-sm font-bold"
+                style={{ 
+                  background: "linear-gradient(90deg, #10b981, #06b6d4)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text"
+                }}
+              >
                 {data.personality.title} {data.personality.emoji}
               </div>
             </div>
@@ -211,11 +234,11 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
               crossOrigin="anonymous"
             />
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-white/10">
-            <div className="text-[11px] text-emerald-400 font-medium">
+          <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+            <div className="text-[11px] font-medium" style={{ color: "#10b981" }}>
               Powered by Kubesimplify
             </div>
-            <div className="text-[10px] text-gray-500 font-mono">
+            <div className="text-[10px] font-mono" style={{ color: "#6b7280" }}>
               github-wrapped-five.vercel.app
             </div>
           </div>
@@ -232,7 +255,8 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         <button
           onClick={handleDownload}
           disabled={downloading}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold hover:shadow-lg hover:shadow-emerald-500/20 transition-all disabled:opacity-50 text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
+          style={{ background: "linear-gradient(90deg, #10b981, #06b6d4)" }}
         >
           {downloading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -245,7 +269,8 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         <button
           onClick={handleDownloadAllSlides}
           disabled={downloadingAll || !onNavigateToSlide}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50 text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 text-sm"
+          style={{ background: "linear-gradient(90deg, #a855f7, #ec4899)" }}
         >
           {downloadingAll ? (
             <>
@@ -262,7 +287,8 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
 
         <button
           onClick={handleShare}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1DA1F2] text-white font-semibold hover:bg-[#1a8cd8] transition-all text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all text-sm"
+          style={{ backgroundColor: "#1DA1F2" }}
         >
           <Twitter className="w-4 h-4" />
           Share
@@ -270,7 +296,8 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
 
         <Link
           href="/"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-emerald-500/20 text-white font-semibold hover:bg-white/10 transition-all text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold transition-all text-sm"
+          style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(16, 185, 129, 0.2)" }}
         >
           <RotateCcw className="w-4 h-4" />
           New
@@ -281,9 +308,10 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="mt-4 text-gray-500 text-center text-xs max-w-sm"
+        className="mt-4 text-center text-xs max-w-sm"
+        style={{ color: "#6b7280" }}
       >
-        💡 <span className="text-purple-400">All Slides</span> downloads each slide as shown
+        💡 <span style={{ color: "#a855f7" }}>All Slides</span> downloads each slide as shown
       </motion.p>
     </div>
   );

@@ -10,7 +10,11 @@ interface Props {
 }
 
 export default function StreakSlide({ data }: Props) {
-  const { activity } = data;
+  const activity = data?.activity || {};
+  const longestStreak = activity.longestStreak || 0;
+  const currentStreak = activity.currentStreak || 0;
+  const totalActiveDays = activity.totalActiveDays || 0;
+  const averagePerDay = activity.averagePerDay || "0";
 
   const getStreakMessage = (streak: number) => {
     if (streak >= 100) return "You're on fire! Legendary commitment 🏆";
@@ -23,7 +27,6 @@ export default function StreakSlide({ data }: Props) {
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
-      {/* Fire animations - Amber/Orange */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(8)].map((_, i) => (
           <motion.div
@@ -50,7 +53,6 @@ export default function StreakSlide({ data }: Props) {
         Your longest streak this year
       </motion.p>
 
-      {/* Main Streak Number */}
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
@@ -65,7 +67,7 @@ export default function StreakSlide({ data }: Props) {
             transition={{ delay: 0.5, type: "spring" }}
             className="text-8xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-br from-amber-400 via-orange-400 to-red-400"
           >
-            {activity.longestStreak}
+            {longestStreak}
           </motion.span>
           <motion.span
             initial={{ opacity: 0 }}
@@ -78,7 +80,6 @@ export default function StreakSlide({ data }: Props) {
         </div>
       </motion.div>
 
-      {/* Fire Icon */}
       <motion.div
         initial={{ scale: 0, rotate: -20 }}
         animate={{ scale: 1, rotate: 0 }}
@@ -93,17 +94,15 @@ export default function StreakSlide({ data }: Props) {
         </motion.div>
       </motion.div>
 
-      {/* Message */}
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
         className="text-lg md:text-xl text-gray-300 text-center max-w-md mb-10"
       >
-        {getStreakMessage(activity.longestStreak)}
+        {getStreakMessage(longestStreak)}
       </motion.p>
 
-      {/* Stats Cards */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -112,19 +111,19 @@ export default function StreakSlide({ data }: Props) {
       >
         <div className="p-4 rounded-xl bg-white/5 border border-amber-500/20 text-center">
           <Flame className="w-5 h-5 text-amber-400 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-amber-400">{activity.currentStreak}</div>
+          <div className="text-2xl font-bold text-amber-400">{currentStreak}</div>
           <div className="text-xs text-gray-500">Current Streak</div>
         </div>
 
         <div className="p-4 rounded-xl bg-white/5 border border-emerald-500/20 text-center">
           <Calendar className="w-5 h-5 text-emerald-400 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-emerald-400">{activity.totalActiveDays}</div>
+          <div className="text-2xl font-bold text-emerald-400">{totalActiveDays}</div>
           <div className="text-xs text-gray-500">Active Days</div>
         </div>
 
         <div className="p-4 rounded-xl bg-white/5 border border-cyan-500/20 text-center">
           <TrendingUp className="w-5 h-5 text-cyan-400 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-cyan-400">{activity.averagePerDay}</div>
+          <div className="text-2xl font-bold text-cyan-400">{averagePerDay}</div>
           <div className="text-xs text-gray-500">Per Day Avg</div>
         </div>
       </motion.div>

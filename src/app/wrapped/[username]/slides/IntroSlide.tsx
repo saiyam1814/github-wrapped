@@ -9,9 +9,12 @@ interface Props {
 }
 
 export default function IntroSlide({ data, onNext }: Props) {
+  const user = data?.user || {};
+  const userName = user.name || user.login || "Developer";
+  const avatarUrl = user.avatarUrl || "";
+
   return (
     <div className="flex flex-col items-center justify-center text-center h-full px-4">
-      {/* Floating particles - Emerald/Cyan */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(15)].map((_, i) => (
           <motion.div
@@ -24,7 +27,6 @@ export default function IntroSlide({ data, onNext }: Props) {
         ))}
       </div>
 
-      {/* Avatar */}
       <motion.div
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
@@ -33,24 +35,28 @@ export default function IntroSlide({ data, onNext }: Props) {
       >
         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 blur-xl opacity-50 scale-110" />
         <div className="pulse-ring" />
-        <img
-          src={data.user.avatarUrl}
-          alt={data.user.name}
-          className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-emerald-500/30 shadow-2xl object-cover"
-        />
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={userName}
+            className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-emerald-500/30 shadow-2xl object-cover"
+          />
+        ) : (
+          <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-emerald-500/30 shadow-2xl bg-emerald-500/20 flex items-center justify-center">
+            <span className="text-4xl">👤</span>
+          </div>
+        )}
       </motion.div>
 
-      {/* Greeting */}
       <motion.p
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
         className="text-xl md:text-2xl text-gray-400 mb-2"
       >
-        Hey, {data.user.name}! 👋
+        Hey, {userName}! 👋
       </motion.p>
 
-      {/* Main Title */}
       <motion.h1
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -62,7 +68,6 @@ export default function IntroSlide({ data, onNext }: Props) {
         <span className="text-gradient">GitHub Wrapped</span>
       </motion.h1>
 
-      {/* Subtitle */}
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -72,7 +77,6 @@ export default function IntroSlide({ data, onNext }: Props) {
         Let's unwrap your year in code
       </motion.p>
 
-      {/* CTA Button - Emerald/Cyan */}
       <motion.button
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}

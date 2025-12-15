@@ -10,20 +10,24 @@ interface Props {
 }
 
 export default function ImpactSlide({ data }: Props) {
-  const { impact } = data;
+  const impact = data?.impact || {};
+  const totalStars = impact.totalStars || 0;
+  const totalForks = impact.totalForks || 0;
+  const repositoryCount = impact.repositoryCount || 0;
+  const ossContributions = impact.ossContributions || {};
+  const mostContributedRepo = impact.mostContributedRepo || null;
+  const mostStarredRepo = impact.mostStarredRepo || null;
 
   const getMessage = () => {
-    const stars = impact.totalStars;
-    if (stars >= 10000) return "You're basically a GitHub celebrity 🌟";
-    if (stars >= 1000) return "Thousands trust your code. That's real impact";
-    if (stars >= 100) return "Your work is getting noticed. Keep shipping!";
-    if (stars >= 10) return "Every star represents someone you've helped";
+    if (totalStars >= 10000) return "You're basically a GitHub celebrity 🌟";
+    if (totalStars >= 1000) return "Thousands trust your code. That's real impact";
+    if (totalStars >= 100) return "Your work is getting noticed. Keep shipping!";
+    if (totalStars >= 10) return "Every star represents someone you've helped";
     return "Impact isn't just about stars. It's about the problems you solve";
   };
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
-      {/* Floating stars animation */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(12)].map((_, i) => (
           <motion.div
@@ -59,7 +63,6 @@ export default function ImpactSlide({ data }: Props) {
         Your impact on the community
       </motion.p>
 
-      {/* Stars Highlight */}
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
@@ -81,7 +84,7 @@ export default function ImpactSlide({ data }: Props) {
               transition={{ delay: 0.5 }}
               className="text-6xl md:text-7xl font-black text-gradient-gold"
             >
-              {impact.totalStars.toLocaleString()}
+              {totalStars.toLocaleString()}
             </motion.div>
             <motion.div
               initial={{ opacity: 0 }}
@@ -95,7 +98,6 @@ export default function ImpactSlide({ data }: Props) {
         </div>
       </motion.div>
 
-      {/* Stats Row */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -105,7 +107,7 @@ export default function ImpactSlide({ data }: Props) {
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
             <GitFork className="w-5 h-5 text-emerald-400" />
-            <span className="text-3xl font-bold text-emerald-400">{impact.totalForks.toLocaleString()}</span>
+            <span className="text-3xl font-bold text-emerald-400">{totalForks.toLocaleString()}</span>
           </div>
           <div className="text-gray-500 text-sm">Forks</div>
         </div>
@@ -113,24 +115,23 @@ export default function ImpactSlide({ data }: Props) {
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
             <FolderGit2 className="w-5 h-5 text-cyan-400" />
-            <span className="text-3xl font-bold text-cyan-400">{impact.repositoryCount}</span>
+            <span className="text-3xl font-bold text-cyan-400">{repositoryCount}</span>
           </div>
           <div className="text-gray-500 text-sm">Repositories</div>
         </div>
 
-        {impact.ossContributions && impact.ossContributions.repoCount > 0 && (
+        {(ossContributions as any).repoCount > 0 && (
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Globe className="w-5 h-5 text-purple-400" />
-              <span className="text-3xl font-bold text-purple-400">{impact.ossContributions.repoCount}</span>
+              <span className="text-3xl font-bold text-purple-400">{(ossContributions as any).repoCount}</span>
             </div>
             <div className="text-gray-500 text-sm">OSS Repos</div>
           </div>
         )}
       </motion.div>
 
-      {/* Most Contributed Repository */}
-      {impact.mostContributedRepo && (
+      {mostContributedRepo && (
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -141,24 +142,23 @@ export default function ImpactSlide({ data }: Props) {
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white">{impact.mostContributedRepo.nameWithOwner}</h3>
+                <h3 className="text-lg font-bold text-white">{mostContributedRepo.nameWithOwner || mostContributedRepo.name || "Repository"}</h3>
                 <div className="flex gap-3 mt-2 text-sm">
-                  <span className="text-emerald-400">{impact.mostContributedRepo.commits} commits</span>
-                  <span className="text-cyan-400">{impact.mostContributedRepo.prs} PRs</span>
-                  <span className="text-amber-400">{impact.mostContributedRepo.issues} issues</span>
+                  <span className="text-emerald-400">{mostContributedRepo.commits || 0} commits</span>
+                  <span className="text-cyan-400">{mostContributedRepo.prs || 0} PRs</span>
+                  <span className="text-amber-400">{mostContributedRepo.issues || 0} issues</span>
                 </div>
               </div>
               <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/20">
                 <Flame className="w-4 h-4 text-emerald-400" />
-                <span className="text-emerald-400 font-bold text-sm">{impact.mostContributedRepo.total}</span>
+                <span className="text-emerald-400 font-bold text-sm">{mostContributedRepo.total || 0}</span>
               </div>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* Top Repository by Stars */}
-      {impact.mostStarredRepo && (
+      {mostStarredRepo && (
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -169,23 +169,22 @@ export default function ImpactSlide({ data }: Props) {
           <div className="p-4 rounded-2xl bg-white/5 border border-yellow-500/20">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white">{impact.mostStarredRepo.name}</h3>
-                {impact.mostStarredRepo.description && (
+                <h3 className="text-lg font-bold text-white">{mostStarredRepo.name || "Repository"}</h3>
+                {mostStarredRepo.description && (
                   <p className="text-gray-500 text-sm mt-1 line-clamp-1">
-                    {impact.mostStarredRepo.description}
+                    {mostStarredRepo.description}
                   </p>
                 )}
               </div>
               <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/10">
                 <Star className="w-4 h-4 text-yellow-400" fill="currentColor" />
-                <span className="text-yellow-400 font-bold">{impact.mostStarredRepo.stars.toLocaleString()}</span>
+                <span className="text-yellow-400 font-bold">{(mostStarredRepo.stars || 0).toLocaleString()}</span>
               </div>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* Message */}
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

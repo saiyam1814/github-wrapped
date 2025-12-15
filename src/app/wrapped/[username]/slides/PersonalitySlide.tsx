@@ -9,11 +9,17 @@ interface Props {
 }
 
 export default function PersonalitySlide({ data }: Props) {
-  const { personality } = data;
+  const personality = data?.personality || {
+    emoji: "🚀",
+    title: "Code Explorer",
+    tagline: "Always learning",
+    description: "You explore new technologies and push boundaries",
+    traits: [],
+    badges: [],
+  };
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
-      {/* Background effect - Emerald/Cyan */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -24,7 +30,6 @@ export default function PersonalitySlide({ data }: Props) {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-conic from-emerald-500/10 via-cyan-500/10 to-teal-500/10 blur-3xl" />
       </motion.div>
 
-      {/* Intro Text */}
       <motion.p
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -34,7 +39,6 @@ export default function PersonalitySlide({ data }: Props) {
         Based on your coding patterns, you are...
       </motion.p>
 
-      {/* Main Personality Card - Emerald/Cyan gradient */}
       <motion.div
         initial={{ scale: 0, rotate: -10 }}
         animate={{ scale: 1, rotate: 0 }}
@@ -79,7 +83,6 @@ export default function PersonalitySlide({ data }: Props) {
         </div>
       </motion.div>
 
-      {/* Description */}
       <motion.p
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -89,28 +92,28 @@ export default function PersonalitySlide({ data }: Props) {
         "{personality.description}"
       </motion.p>
 
-      {/* Traits */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2.3 }}
-        className="flex flex-wrap justify-center gap-2 mt-8 z-10"
-      >
-        {personality.traits?.slice(0, 4).map((trait, index) => (
-          <motion.div
-            key={trait.name}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 2.5 + index * 0.1 }}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20"
-          >
-            <span>{trait.icon}</span>
-            <span className="text-sm text-gray-300">{trait.name}</span>
-          </motion.div>
-        ))}
-      </motion.div>
+      {personality.traits && personality.traits.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 2.3 }}
+          className="flex flex-wrap justify-center gap-2 mt-8 z-10"
+        >
+          {personality.traits.slice(0, 4).map((trait, index) => (
+            <motion.div
+              key={trait.name}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 2.5 + index * 0.1 }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20"
+            >
+              <span>{trait.icon}</span>
+              <span className="text-sm text-gray-300">{trait.name}</span>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
 
-      {/* Badges */}
       {personality.badges && personality.badges.length > 0 && (
         <motion.div
           initial={{ opacity: 0 }}

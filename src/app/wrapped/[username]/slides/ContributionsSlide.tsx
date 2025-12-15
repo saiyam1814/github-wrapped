@@ -12,11 +12,11 @@ interface Props {
 
 function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number }) {
   const [display, setDisplay] = useState(0);
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      let start = 0;
-      const end = value;
+      const end = safeValue;
       const duration = 2000;
       const startTime = Date.now();
 
@@ -32,19 +32,28 @@ function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number })
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [value, delay]);
+  }, [safeValue, delay]);
 
   return <span>{display.toLocaleString()}</span>;
 }
 
 export default function ContributionsSlide({ data }: Props) {
-  const { contributions, activity } = data;
+  const contributions = data?.contributions || {};
+  const activity = data?.activity || {};
+  
+  const total = contributions.total || 0;
+  const commits = contributions.commits || 0;
+  const pullRequests = contributions.pullRequests || 0;
+  const issues = contributions.issues || 0;
+  const reviews = contributions.reviews || 0;
+  const reposContributedTo = contributions.reposContributedTo || 0;
+  const averagePerDay = activity.averagePerDay || "0";
 
   const stats = [
-    { label: "Commits", value: contributions.commits, icon: GitCommit, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-    { label: "Pull Requests", value: contributions.pullRequests, icon: GitPullRequest, color: "text-cyan-400", bg: "bg-cyan-500/10" },
-    { label: "Issues", value: contributions.issues, icon: CircleDot, color: "text-amber-400", bg: "bg-amber-500/10" },
-    { label: "Reviews", value: contributions.reviews, icon: Eye, color: "text-teal-400", bg: "bg-teal-500/10" },
+    { label: "Commits", value: commits, icon: GitCommit, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+    { label: "Pull Requests", value: pullRequests, icon: GitPullRequest, color: "text-cyan-400", bg: "bg-cyan-500/10" },
+    { label: "Issues", value: issues, icon: CircleDot, color: "text-amber-400", bg: "bg-amber-500/10" },
+    { label: "Reviews", value: reviews, icon: Eye, color: "text-teal-400", bg: "bg-teal-500/10" },
   ];
 
   const getHeadline = (count: number) => {
@@ -63,7 +72,7 @@ export default function ContributionsSlide({ data }: Props) {
         transition={{ delay: 0.2 }}
         className="text-xl md:text-2xl text-gray-400 mb-4"
       >
-        {getHeadline(contributions.total)}
+        {getHeadline(total)}
       </motion.p>
 
       <motion.div
@@ -74,7 +83,7 @@ export default function ContributionsSlide({ data }: Props) {
       >
         <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 scale-150" />
         <h1 className="relative text-7xl md:text-9xl font-black text-gradient glow">
-          <AnimatedNumber value={contributions.total} delay={600} />
+          <AnimatedNumber value={total} delay={600} />
         </h1>
       </motion.div>
 
@@ -93,7 +102,7 @@ export default function ContributionsSlide({ data }: Props) {
         transition={{ delay: 1 }}
         className="text-gray-400 max-w-lg mb-6 text-lg"
       >
-        That's an average of <span className="text-emerald-400 font-bold">{activity.averagePerDay}</span> contributions per active day
+        That's an average of <span className="text-emerald-400 font-bold">{averagePerDay}</span> contributions per active day
       </motion.p>
 
       {/* Repos Contributed To */}
@@ -105,7 +114,7 @@ export default function ContributionsSlide({ data }: Props) {
       >
         <FolderGit2 className="w-5 h-5 text-purple-400" />
         <span className="text-purple-300">
-          Contributed to <span className="font-bold text-purple-400">{contributions.reposContributedTo}</span> repositories
+          Contributed to <span className="font-bold text-purple-400">{reposContributedTo}</span> repositories
         </span>
       </motion.div>
 
@@ -121,10 +130,10 @@ export default function ContributionsSlide({ data }: Props) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.4 + index * 0.1 }}
-            className={`${stat.bg} rounded-xl p-4 border border-white/5`}
+            className={`\${stat.bg} rounded-xl p-4 border border-white/5`}
           >
-            <stat.icon className={`w-5 h-5 ${stat.color} mb-2 mx-auto`} />
-            <div className={`text-2xl md:text-3xl font-bold ${stat.color}`}>
+            <stat.icon className={`w-5 h-5 \${stat.color} mb-2 mx-auto`} />
+            <div className={`text-2xl md:text-3xl font-bold \${stat.color}`}>
               <AnimatedNumber value={stat.value} delay={1600 + index * 100} />
             </div>
             <div className="text-xs text-gray-500 mt-1">{stat.label}</div>

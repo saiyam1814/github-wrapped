@@ -89,18 +89,15 @@ async function fetchREST(endpoint: string, token: string, customHeaders?: Record
   }
 }
 
-// --- Stars gained in 2025 (exact) using binary search on stargazers --- //
-// The stargazers API is ordered oldest -> newest. We binary search pages to find
-// the first star in 2025 and the first star after 2025, then count precisely.
+// Get stars gained in 2025 - use Link header for proper pagination
 async function getStarsGained2025(owner: string, name: string, token: string): Promise<number> {
-  const perPage = 100;
-  const startDate = new Date(`${CURRENT_YEAR}-01-01T00:00:00Z`);
-  const endDate = new Date(`${CURRENT_YEAR}-12-31T23:59:59Z`);
-
-  // Helper to fetch a page of stargazers with timestamps
-  const fetchPage = async (page: number) => {
-    const resp = await fetch(
-      `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=${page}`,
+  try {
+    let starsIn2025 = 0;
+    const perPage = 100;
+    
+    // First request to get the actual last page from Link header
+    const firstResp = await fetch(
+      `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=1`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -108,102 +105,80 @@ async function getStarsGained2025(owner: string, name: string, token: string): P
         },
       }
     );
-    if (!resp.ok) return { data: [], first: null as Date | null, last: null as Date | null, link: resp.headers.get("Link") };
-    const data = await resp.json();
-    if (!Array.isArray(data) || data.length === 0) {
-      return { data: [], first: null, last: null, link: resp.headers.get("Link") };
+    
+    if (!firstResp.ok) return 0;
+    
+    // Parse Link header to get last page - GitHub limits stargazers API to 400 pages (40k stars with timestamps)
+    const linkHeader = firstResp.headers.get("Link") || "";
+    let lastPage = 1;
+    
+    const lastMatch = linkHeader.match(/page=(\d+)>; rel="last"/);
+    if (lastMatch) {
+      lastPage = parseInt(lastMatch[1], 10);
     }
-    const first = data[0]?.starred_at ? new Date(data[0].starred_at) : null;
-    const last = data[data.length - 1]?.starred_at ? new Date(data[data.length - 1].starred_at) : null;
-    return { data, first, last, link: resp.headers.get("Link") };
-  };
-
-  // Get last page number from Link header
-  const firstResp = await fetchPage(1);
-  let lastPage = 1;
-  const link = firstResp.link;
-  if (link) {
-    const match = link.match(/page=(\d+)>; rel="last"/);
-    if (match) lastPage = parseInt(match[1], 10);
-  }
-
-  // If repository has no stargazers or can't fetch, return 0
-  if (!firstResp.first || !firstResp.last) return 0;
-
-  // Quick exit: if even newest stars are before 2025
-  const newestPage = await fetchPage(lastPage);
-  if (!newestPage.last) return 0;
-  if (newestPage.last < startDate) return 0;
-
-  // Binary search lower bound: first page that has any star >= startDate
-  let lo = 1, hi = lastPage;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    const page = await fetchPage(mid);
-    if (!page.first || !page.last) {
-      lo = mid + 1;
-      continue;
+    
+    // For small repos, count from the first page data
+    const firstData = await firstResp.json();
+    if (!Array.isArray(firstData)) return 0;
+    
+    // If only one page, count directly
+    if (lastPage === 1) {
+      for (const star of firstData) {
+        if (star.starred_at && new Date(star.starred_at).getFullYear() === CURRENT_YEAR) {
+          starsIn2025++;
+        }
+      }
+      return starsIn2025;
     }
-    if (page.last < startDate) {
-      lo = mid + 1;
-    } else {
-      hi = mid;
+    
+    // For larger repos, start from the last page and work backwards
+    // GitHub's star+json API is limited to ~400 pages, so lastPage reflects actual available pages
+    const maxPagesToCheck = Math.min(50, lastPage); // Check up to 50 pages (5000 stars)
+    
+    for (let page = lastPage; page > lastPage - maxPagesToCheck && page >= 1; page--) {
+      const resp = await fetch(
+        `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=${page}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.star+json",
+          },
+        }
+      );
+      
+      if (!resp.ok) break;
+      
+      const stargazers = await resp.json();
+      if (!Array.isArray(stargazers) || stargazers.length === 0) break;
+      
+      let found2025 = false;
+      let foundOlder = false;
+      
+      for (const star of stargazers) {
+        if (star.starred_at) {
+          const year = new Date(star.starred_at).getFullYear();
+          if (year === CURRENT_YEAR) {
+            starsIn2025++;
+            found2025 = true;
+          } else if (year < CURRENT_YEAR) {
+            foundOlder = true;
+          }
+        }
+      }
+      
+      // If entire page is older than 2025, stop
+      if (foundOlder && !found2025) break;
+      
+      // Rate limit protection
+      await new Promise(r => setTimeout(r, 50));
     }
+    
+    return starsIn2025;
+  } catch (e) {
+    console.error("Error fetching stargazers:", e);
+    return 0;
   }
-  const first2025Page = lo;
-
-  // Binary search upper bound: first page where first star > endDate
-  lo = first2025Page;
-  hi = lastPage + 1;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    const page = await fetchPage(mid);
-    if (!page.first || !page.last) {
-      lo = mid + 1;
-      continue;
-    }
-    if (page.first > endDate) {
-      hi = mid;
-    } else {
-      lo = mid + 1;
-    }
-  }
-  const firstAfter2025Page = lo; // this page is > endDate
-
-  // Count precisely
-  let total = 0;
-  const countPageBetween = async (pageNum: number, isLower: boolean, isUpper: boolean) => {
-    const page = await fetchPage(pageNum);
-    if (!page.data.length) return 0;
-    return page.data.reduce((acc, star) => {
-      const d = star.starred_at ? new Date(star.starred_at) : null;
-      if (!d) return acc;
-      if (d >= startDate && d <= endDate) return acc + 1;
-      return acc;
-    }, 0);
-  };
-
-  if (first2025Page > lastPage) return 0;
-
-  // Lower boundary page
-  total += await countPageBetween(first2025Page, true, false);
-
-  // Full pages between
-  const midPages = firstAfter2025Page - first2025Page - 1;
-  if (midPages > 0) {
-    total += midPages * perPage;
-  }
-
-  // Upper boundary page (page before firstAfter2025Page)
-  const upperPage = firstAfter2025Page - 1;
-  if (upperPage !== first2025Page && upperPage <= lastPage) {
-    total += await countPageBetween(upperPage, false, true);
-  }
-
-  return total;
 }
-
-// Get forks created in 2025
 async function getForksGained2025(owner: string, name: string, token: string): Promise<number> {
   try {
     let forksIn2025 = 0;

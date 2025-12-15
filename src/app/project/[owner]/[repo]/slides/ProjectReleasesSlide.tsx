@@ -117,24 +117,44 @@ export default function ProjectReleasesSlide({ data }: Props) {
           <p className="text-gray-400">stable releases</p>
         </motion.div>
 
-        {/* Downloads */}
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.5, type: "spring" }}
-          className="text-center"
-        >
-          <div className="relative mb-2">
-            <div className="absolute inset-0 blur-2xl bg-emerald-500/30" />
-            <div className="relative flex items-center gap-2">
-              <Download className="w-8 h-8 text-emerald-400" />
-              <span className="text-5xl md:text-6xl font-black text-emerald-400">
-                <AnimatedNumber value={totalDownloads} delay={700} />
-              </span>
+        {/* Downloads - show only if we have data, otherwise indicate external hosting */}
+        {totalDownloads > 0 ? (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.5, type: "spring" }}
+            className="text-center"
+          >
+            <div className="relative mb-2">
+              <div className="absolute inset-0 blur-2xl bg-emerald-500/30" />
+              <div className="relative flex items-center gap-2">
+                <Download className="w-8 h-8 text-emerald-400" />
+                <span className="text-5xl md:text-6xl font-black text-emerald-400">
+                  <AnimatedNumber value={totalDownloads} delay={700} />
+                </span>
+              </div>
             </div>
-          </div>
-          <p className="text-gray-400">total downloads</p>
-        </motion.div>
+            <p className="text-gray-400">total downloads</p>
+          </motion.div>
+        ) : releaseCount > 0 ? (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.5, type: "spring" }}
+            className="text-center"
+          >
+            <div className="relative mb-2">
+              <div className="absolute inset-0 blur-xl bg-emerald-500/20" />
+              <div className="relative flex items-center gap-2">
+                <Download className="w-8 h-8 text-emerald-400/60" />
+                <span className="text-3xl md:text-4xl font-bold text-emerald-400/60">
+                  External
+                </span>
+              </div>
+            </div>
+            <p className="text-gray-500 text-sm">downloads tracked externally</p>
+          </motion.div>
+        ) : null}
       </div>
 
       {/* Top Releases */}
@@ -145,7 +165,9 @@ export default function ProjectReleasesSlide({ data }: Props) {
           transition={{ delay: 1 }}
           className="w-full max-w-md"
         >
-          <p className="text-sm text-gray-500 mb-3 text-center">Top releases by downloads</p>
+          <p className="text-sm text-gray-500 mb-3 text-center">
+            {totalDownloads > 0 ? "Top releases by downloads" : "Recent releases"}
+          </p>
           <div className="space-y-2">
             {topReleases.map((release, index) => (
               <motion.div
@@ -169,10 +191,12 @@ export default function ProjectReleasesSlide({ data }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-emerald-400">
-                  <ArrowDown className="w-4 h-4" />
-                  <span className="font-bold">{formatDownloads(release.downloads || 0)}</span>
-                </div>
+                {totalDownloads > 0 && (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <ArrowDown className="w-4 h-4" />
+                    <span className="font-bold">{formatDownloads(release.downloads || 0)}</span>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>

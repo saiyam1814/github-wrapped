@@ -47,7 +47,7 @@ export default function ProjectStatsSlide({ data }: Props) {
   const prsMerged2025 = stats?.pullRequests?.merged2025 || 0;
   const issuesCreated2025 = stats?.issues?.created2025 || 0;
   const commits2025 = stats?.commits?.total2025 || 0;
-  const contributorsTotal = stats?.contributors?.total || 0;
+  const contributorsTotal = stats?.contributors?.total2025 || stats?.contributors?.total || 0;
 
   // Calculate growth indicators
   const totalStars = stats?.stars?.total || 0;
@@ -178,7 +178,7 @@ export default function ProjectStatsSlide({ data }: Props) {
       >
         <Users className="w-5 h-5 text-emerald-400" />
         <span className="text-gray-400">
-          <span className="text-emerald-400 font-bold">{contributorsTotal.toLocaleString()}</span> contributors building together
+          <span className="text-emerald-400 font-bold">{contributorsTotal.toLocaleString()}</span> contributors active in 2025
         </span>
       </motion.div>
     </div>

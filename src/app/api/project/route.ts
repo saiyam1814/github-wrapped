@@ -89,68 +89,118 @@ async function fetchREST(endpoint: string, token: string, customHeaders?: Record
   }
 }
 
-// Get stars gained in 2025 by sampling recent stargazers
-async function getStarsGained2025(owner: string, name: string, token: string, totalStars: number): Promise<number> {
-  try {
-    // For repos with many stars, sample the last pages to estimate
-    // GitHub API returns stargazers in chronological order (oldest first)
-    // So we need to get the last pages for recent stars
-    
-    let starsIn2025 = 0;
-    const perPage = 100;
-    
-    // Calculate how many pages we have
-    const totalPages = Math.ceil(totalStars / perPage);
-    
-    // Start from the last page and work backwards
-    // We'll check up to 30 pages (3000 stars) to get a reasonable sample
-    const pagesToCheck = Math.min(30, totalPages);
-    const startPage = Math.max(1, totalPages - pagesToCheck + 1);
-    
-    for (let page = totalPages; page >= startPage && page >= 1; page--) {
-      const data = await fetch(
-        `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=${page}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/vnd.github.star+json", // This gives us starred_at timestamps!
-          },
-        }
-      );
-      
-      if (!data.ok) break;
-      
-      const stargazers = await data.json();
-      if (!Array.isArray(stargazers) || stargazers.length === 0) break;
-      
-      let foundOlderStar = false;
-      
-      for (const star of stargazers) {
-        if (star.starred_at) {
-          const starYear = new Date(star.starred_at).getFullYear();
-          if (starYear === CURRENT_YEAR) {
-            starsIn2025++;
-          } else if (starYear < CURRENT_YEAR) {
-            // Found a star from before 2025, all earlier pages will be older
-            foundOlderStar = true;
-          }
-        }
+// --- Stars gained in 2025 (exact) using binary search on stargazers --- //
+// The stargazers API is ordered oldest -> newest. We binary search pages to find
+// the first star in 2025 and the first star after 2025, then count precisely.
+async function getStarsGained2025(owner: string, name: string, token: string): Promise<number> {
+  const perPage = 100;
+  const startDate = new Date(`${CURRENT_YEAR}-01-01T00:00:00Z`);
+  const endDate = new Date(`${CURRENT_YEAR}-12-31T23:59:59Z`);
+
+  // Helper to fetch a page of stargazers with timestamps
+  const fetchPage = async (page: number) => {
+    const resp = await fetch(
+      `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=${page}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github.star+json",
+        },
       }
-      
-      // If all stars on this page are from before 2025, no need to check earlier pages
-      if (foundOlderStar && starsIn2025 === 0) {
-        break;
-      }
-      
-      // Small delay to avoid rate limiting
-      await new Promise(r => setTimeout(r, 100));
+    );
+    if (!resp.ok) return { data: [], first: null as Date | null, last: null as Date | null, link: resp.headers.get("Link") };
+    const data = await resp.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      return { data: [], first: null, last: null, link: resp.headers.get("Link") };
     }
-    
-    return starsIn2025;
-  } catch (e) {
-    console.error("Error fetching stargazers:", e);
-    return 0;
+    const first = data[0]?.starred_at ? new Date(data[0].starred_at) : null;
+    const last = data[data.length - 1]?.starred_at ? new Date(data[data.length - 1].starred_at) : null;
+    return { data, first, last, link: resp.headers.get("Link") };
+  };
+
+  // Get last page number from Link header
+  const firstResp = await fetchPage(1);
+  let lastPage = 1;
+  const link = firstResp.link;
+  if (link) {
+    const match = link.match(/page=(\\d+)>; rel="last"/);
+    if (match) lastPage = parseInt(match[1], 10);
   }
+
+  // If repository has no stargazers or can't fetch, return 0
+  if (!firstResp.first || !firstResp.last) return 0;
+
+  // Quick exit: if even newest stars are before 2025
+  const newestPage = await fetchPage(lastPage);
+  if (!newestPage.last) return 0;
+  if (newestPage.last < startDate) return 0;
+
+  // Binary search lower bound: first page that has any star >= startDate
+  let lo = 1, hi = lastPage;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const page = await fetchPage(mid);
+    if (!page.first || !page.last) {
+      lo = mid + 1;
+      continue;
+    }
+    if (page.last < startDate) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  const first2025Page = lo;
+
+  // Binary search upper bound: first page where first star > endDate
+  lo = first2025Page;
+  hi = lastPage + 1;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const page = await fetchPage(mid);
+    if (!page.first || !page.last) {
+      lo = mid + 1;
+      continue;
+    }
+    if (page.first > endDate) {
+      hi = mid;
+    } else {
+      lo = mid + 1;
+    }
+  }
+  const firstAfter2025Page = lo; // this page is > endDate
+
+  // Count precisely
+  let total = 0;
+  const countPageBetween = async (pageNum: number, isLower: boolean, isUpper: boolean) => {
+    const page = await fetchPage(pageNum);
+    if (!page.data.length) return 0;
+    return page.data.reduce((acc, star) => {
+      const d = star.starred_at ? new Date(star.starred_at) : null;
+      if (!d) return acc;
+      if (d >= startDate && d <= endDate) return acc + 1;
+      return acc;
+    }, 0);
+  };
+
+  if (first2025Page > lastPage) return 0;
+
+  // Lower boundary page
+  total += await countPageBetween(first2025Page, true, false);
+
+  // Full pages between
+  const midPages = firstAfter2025Page - first2025Page - 1;
+  if (midPages > 0) {
+    total += midPages * perPage;
+  }
+
+  // Upper boundary page (page before firstAfter2025Page)
+  const upperPage = firstAfter2025Page - 1;
+  if (upperPage !== first2025Page && upperPage <= lastPage) {
+    total += await countPageBetween(upperPage, false, true);
+  }
+
+  return total;
 }
 
 // Get forks created in 2025
@@ -192,6 +242,47 @@ async function getForksGained2025(owner: string, name: string, token: string): P
   } catch (e) {
     console.error("Error fetching forks:", e);
     return 0;
+  }
+}
+
+// Contributors active in 2025 using stats/contributors
+async function getContributors2025(owner: string, name: string, token: string) {
+  try {
+    const data = await fetchREST(`/repos/${owner}/${name}/stats/contributors`, token);
+    if (!Array.isArray(data)) {
+      return { totalActive: 0, top: [] as Array<{ login: string; avatarUrl: string; contributions: number }> };
+    }
+
+    const contributors: Array<{ login: string; avatarUrl: string; contributions: number }> = [];
+
+    data.forEach((item: any) => {
+      if (!item || !item.weeks) return;
+      const total = item.weeks.reduce((sum: number, w: any) => {
+        if (!w || !w.w) return sum;
+        const weekDate = new Date(w.w * 1000);
+        if (weekDate.getFullYear() === CURRENT_YEAR) {
+          return sum + (w.a || 0) + (w.d || 0) + (w.c || 0);
+        }
+        return sum;
+      }, 0);
+      if (total > 0) {
+        contributors.push({
+          login: item.author?.login || "unknown",
+          avatarUrl: item.author?.avatar_url || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+          contributions: total,
+        });
+      }
+    });
+
+    contributors.sort((a, b) => b.contributions - a.contributions);
+
+    return {
+      totalActive: contributors.length,
+      top: contributors.slice(0, 10),
+    };
+  } catch (e) {
+    console.error("Error fetching contributors stats:", e);
+    return { totalActive: 0, top: [] as Array<{ login: string; avatarUrl: string; contributions: number }> };
   }
 }
 
@@ -513,7 +604,8 @@ export async function GET(request: NextRequest) {
       issuesCreated,
       commits2025,
       monthlyCommits,
-      contributors,
+      contributorsAllTime,
+      contributors2025,
       starsGained2025,
       forksGained2025,
     ] = await Promise.all([
@@ -523,8 +615,9 @@ export async function GET(request: NextRequest) {
       getIssuesCreated2025(owner, name, token),
       getCommits2025(owner, name, token),
       getMonthlyCommits(owner, name, token),
-      getContributors(owner, name, token),
-      getStarsGained2025(owner, name, token, totalStars),
+      getContributors(owner, name, token),      // all-time fallback
+      getContributors2025(owner, name, token),  // 2025-active contributors
+      getStarsGained2025(owner, name, token),
       getForksGained2025(owner, name, token),
     ]);
     
@@ -545,7 +638,7 @@ export async function GET(request: NextRequest) {
     const personality = classifyProjectPersonality({
       stars: totalStars,
       forks: repo.forkCount,
-      contributors: contributors.total,
+      contributors: contributors2025.totalActive || contributorsAllTime.total,
       releases: releaseData.count,
       commits: finalCommits,
       prs: prsCreated,
@@ -602,8 +695,9 @@ export async function GET(request: NextRequest) {
           weekly: [],
         },
         contributors: {
-          total: contributors.total || 0,
-          top: contributors.top || [],
+          total: contributors2025.totalActive || contributorsAllTime.total || 0,
+          total2025: contributors2025.totalActive || contributorsAllTime.total || 0,
+          top: contributors2025.top.length ? contributors2025.top : contributorsAllTime.top || [],
         },
       },
       releases: {

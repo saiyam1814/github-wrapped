@@ -47,7 +47,7 @@ export default function ProjectSummarySlide({ data }: Props) {
   const avatarUrl = data.repository?.owner?.avatarUrl || "";
   const starsGained = data.stats?.stars?.gained2025 || 0;
   const totalStars = data.stats?.stars?.total || 0;
-  const contributors = data.stats?.contributors?.total || 0;
+  const contributors = data.stats?.contributors?.total2025 || data.stats?.contributors?.total || 0;
   const mergedPRs = data.stats?.pullRequests?.merged2025 || 0;
   const totalCommits = data.stats?.commits?.total2025 || 0;
   const totalReleases = data.releases?.count2025 || 0;

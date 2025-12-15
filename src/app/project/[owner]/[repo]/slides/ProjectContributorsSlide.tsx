@@ -12,8 +12,8 @@ interface Props {
 export default function ProjectContributorsSlide({ data }: Props) {
   const { stats } = data;
   
-  // Safely get values
-  const contributorsTotal = stats?.contributors?.total || 0;
+  // Safely get values (2025 active contributors)
+  const contributorsTotal = stats?.contributors?.total2025 || stats?.contributors?.total || 0;
   const topContributors = stats?.contributors?.top || [];
 
   const getMedal = (index: number) => {
@@ -54,7 +54,7 @@ export default function ProjectContributorsSlide({ data }: Props) {
         transition={{ delay: 0.5 }}
         className="text-lg text-gray-400 mb-8"
       >
-        contributors helped build this project
+        contributors active in 2025
       </motion.p>
 
       {/* Top Contributors */}

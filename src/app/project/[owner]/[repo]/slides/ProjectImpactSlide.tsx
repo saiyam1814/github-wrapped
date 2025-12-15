@@ -15,7 +15,7 @@ export default function ProjectImpactSlide({ data }: Props) {
   // 2025-specific values
   const starsGained2025 = stats?.stars?.gained2025 || 0;
   const forksGained2025 = stats?.forks?.gained2025 || 0;
-  const contributorsTotal = stats?.contributors?.total || 0;
+  const contributorsTotal = stats?.contributors?.total2025 || stats?.contributors?.total || 0;
   const totalDownloads2025 = releases?.totalDownloads2025 || 0;
 
   // Calculate total impact score

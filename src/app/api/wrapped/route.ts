@@ -21,12 +21,13 @@ query DeveloperWrapped($login: String!, $from: DateTime!, $to: DateTime!) {
       totalPullRequestReviewContributions
       totalRepositoriesWithContributedCommits
       
-      commitContributionsByRepository(maxRepositories: 10) {
+      commitContributionsByRepository(maxRepositories: 30) {
         repository {
           name
           nameWithOwner
           owner { login }
           isPrivate
+          primaryLanguage { name color }
         }
         contributions {
           totalCount
@@ -182,28 +183,34 @@ function processUserData(user: any, languageData: any, year: number) {
     }
   });
 
-  // Process languages from separate query
-  const langMap = new Map<string, { size: number; color: string; repoCount: number }>();
+  // Process languages from 2025 CONTRIBUTED repos (not owned repos)
+  // This shows what languages you ACTUALLY WORKED WITH this year
+  const langMap = new Map<string, { commits: number; color: string; repoCount: number }>();
   
-  if (languageData?.user?.repositories?.nodes) {
-    languageData.user.repositories.nodes.forEach((repo: any) => {
-      repo.languages?.edges?.forEach((edge: any) => {
-        const lang = edge.node.name;
-        const existing = langMap.get(lang) || { size: 0, color: edge.node.color || "#6366f1", repoCount: 0 };
-        existing.size += edge.size;
-        existing.repoCount++;
-        langMap.set(lang, existing);
-      });
-    });
-  }
+  const commitContribs2025 = contrib.commitContributionsByRepository || [];
+  commitContribs2025.forEach((item: any) => {
+    const repo = item.repository;
+    // Skip private repos
+    if (repo.isPrivate) return;
+    
+    const primaryLang = repo.primaryLanguage;
+    if (primaryLang) {
+      const lang = primaryLang.name;
+      const commits = item.contributions.totalCount;
+      const existing = langMap.get(lang) || { commits: 0, color: primaryLang.color || "#6366f1", repoCount: 0 };
+      existing.commits += commits;
+      existing.repoCount++;
+      langMap.set(lang, existing);
+    }
+  });
 
-  const totalSize = Array.from(langMap.values()).reduce((sum, l) => sum + l.size, 0);
+  const totalCommitsForLang = Array.from(langMap.values()).reduce((sum, l) => sum + l.commits, 0);
   const languages = Array.from(langMap.entries())
     .map(([name, data]) => ({
       name,
       color: data.color,
-      size: data.size,
-      percentage: totalSize > 0 ? ((data.size / totalSize) * 100).toFixed(1) : "0",
+      size: data.commits, // Using commits as weight
+      percentage: totalCommitsForLang > 0 ? ((data.commits / totalCommitsForLang) * 100).toFixed(1) : "0",
       repoCount: data.repoCount,
     }))
     .sort((a, b) => b.size - a.size)

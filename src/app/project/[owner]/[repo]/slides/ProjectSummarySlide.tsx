@@ -143,16 +143,28 @@ export default function ProjectSummarySlide({ data }: Props) {
           </div>
         </div>
 
-        {/* Personality */}
+        {/* Personality & Kubesimplify */}
         <div className="p-4 pt-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <div className="text-xs text-gray-500 mb-1">Project Type</div>
               <div className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
                 {personality.title} {personality.emoji}
               </div>
             </div>
-            <div className="text-[10px] text-gray-600 font-mono px-2 py-1 rounded border border-emerald-500/20">
+            {/* Kubesimplify Logo */}
+            <img 
+              src="/images/kubesimplify-logo.png" 
+              alt="Kubesimplify" 
+              className="w-10 h-10 object-contain"
+              crossOrigin="anonymous"
+            />
+          </div>
+          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+            <div className="text-[10px] text-emerald-400 font-medium">
+              Powered by Kubesimplify
+            </div>
+            <div className="text-[10px] text-gray-600 font-mono">
               github-wrapped-five.vercel.app
             </div>
           </div>
@@ -207,4 +219,3 @@ export default function ProjectSummarySlide({ data }: Props) {
     </div>
   );
 }
-

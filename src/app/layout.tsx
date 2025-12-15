@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "GitHub Wrapped 2025 - Your Year in Code",
@@ -23,8 +24,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[#0a0a0a] text-white antialiased">
+      <body className="min-h-screen bg-[#0a0f0d] text-white antialiased">
         {children}
+        <Footer />
       </body>
     </html>
   );

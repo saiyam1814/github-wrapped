@@ -22,7 +22,7 @@ export default function Home() {
       case "user":
         return "Enter GitHub username (e.g., saiyam1814)";
       case "project":
-        return "Enter repo (e.g., facebook/react)";
+        return "Enter repo (e.g., loft-sh/vcluster)";
       default:
         return "Enter identifier";
     }
@@ -58,7 +58,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-mesh">
+    <div className="min-h-screen w-full flex items-center justify-center p-4 pb-16 bg-mesh">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
@@ -193,13 +193,30 @@ export default function Home() {
               Try with <span className="underline text-emerald-400">@octocat</span> demo
             </button>
           </motion.form>
+
+          {/* Powered by Kubesimplify */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+            className="flex items-center justify-center gap-3 mt-6 pt-6 border-t border-white/5"
+          >
+            <img 
+              src="/images/kubesimplify-logo.png" 
+              alt="Kubesimplify" 
+              className="w-8 h-8 object-contain"
+            />
+            <span className="text-sm text-emerald-400 font-medium">
+              Powered by Kubesimplify
+            </span>
+          </motion.div>
         </div>
 
         {/* Privacy Notice */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
+          transition={{ delay: 0.9 }}
           className="text-center text-xs text-gray-600 mt-6"
         >
           <Shield className="w-3 h-3 inline mr-1" />

@@ -4,30 +4,39 @@ import { useState, useRef, useEffect } from "react";
 import { Volume2, VolumeX, Music } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Royalty-free lofi tracks from Pixabay (free to use)
+// Free lofi tracks from Internet Archive (public domain / Creative Commons)
 const LOFI_TRACKS = [
-  "https://cdn.pixabay.com/audio/2024/11/04/audio_a53f46c87f.mp3", // lofi-chill
-  "https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3", // lofi-study  
-  "https://cdn.pixabay.com/audio/2024/02/14/audio_78e11ef470.mp3", // lofi-relax
+  "https://ia800605.us.archive.org/8/items/LofiHipHopMix/Lofi%20Hip%20Hop%20Mix.mp3",
+  "https://ia600501.us.archive.org/23/items/RelaxingPianoMusic_765/RelaxingPianoMusic.mp3",
 ];
 
 export default function AudioPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showHint, setShowHint] = useState(true);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Pick a random track
-    const trackIndex = Math.floor(Math.random() * LOFI_TRACKS.length);
-    const audio = new Audio(LOFI_TRACKS[trackIndex]);
+    // Create audio element
+    const audio = new Audio();
     audio.loop = true;
-    audio.volume = 0.3;
+    audio.volume = 0.25;
+    audio.crossOrigin = "anonymous";
+    
+    // Try first track
+    let trackIndex = 0;
+    audio.src = LOFI_TRACKS[trackIndex];
     audioRef.current = audio;
 
-    audio.addEventListener("canplaythrough", () => {
-      setIsLoaded(true);
-    });
+    // Handle errors - try next track
+    audio.onerror = () => {
+      trackIndex++;
+      if (trackIndex < LOFI_TRACKS.length) {
+        audio.src = LOFI_TRACKS[trackIndex];
+      } else {
+        setHasError(true);
+      }
+    };
 
     // Hide hint after 5 seconds
     const hintTimer = setTimeout(() => setShowHint(false), 5000);
@@ -40,7 +49,7 @@ export default function AudioPlayer() {
   }, []);
 
   const togglePlay = async () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || hasError) return;
 
     try {
       if (isPlaying) {
@@ -53,14 +62,18 @@ export default function AudioPlayer() {
       }
     } catch (err) {
       console.log("Audio play failed:", err);
+      setHasError(true);
     }
   };
+
+  // Don't render if audio failed
+  if (hasError) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
       {/* Hint tooltip */}
       <AnimatePresence>
-        {showHint && isLoaded && (
+        {showHint && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -131,4 +144,3 @@ export default function AudioPlayer() {
     </div>
   );
 }
-

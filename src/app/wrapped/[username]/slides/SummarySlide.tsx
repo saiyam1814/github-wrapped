@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Twitter, RotateCcw, Star, GitCommit, Flame, Code2 } from "lucide-react";
+import { Download, Twitter, RotateCcw, Star, GitCommit, Flame, Code2, Images } from "lucide-react";
 import type { DeveloperData } from "../utils";
 import Link from "next/link";
 
@@ -27,6 +27,7 @@ interface Props {
 export default function SummarySlide({ data }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
   useEffect(() => {
     if (!confetti) return;
@@ -73,6 +74,156 @@ export default function SummarySlide({ data }: Props) {
       console.error("Export failed:", e);
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDownloadAllSlides = async () => {
+    if (downloadingAll || !html2canvas) return;
+    
+    setDownloadingAll(true);
+    
+    try {
+      // Create carousel slides data
+      const slides = [
+        {
+          title: "GitHub Wrapped 2025",
+          subtitle: data.user.name,
+          emoji: "🎁",
+          stat: data.contributions.total.toLocaleString(),
+          statLabel: "contributions",
+          gradient: "from-emerald-600 to-cyan-600",
+        },
+        {
+          title: "Contributions",
+          subtitle: `${data.contributions.commits.toLocaleString()} commits`,
+          emoji: "📊",
+          stat: data.contributions.total.toLocaleString(),
+          statLabel: "total contributions",
+          gradient: "from-emerald-600 to-teal-600",
+        },
+        {
+          title: "Longest Streak",
+          subtitle: "Days of consistency",
+          emoji: "🔥",
+          stat: data.activity.longestStreak.toString(),
+          statLabel: "consecutive days",
+          gradient: "from-amber-600 to-orange-600",
+        },
+        {
+          title: "Top Language",
+          subtitle: data.languages.top?.name || "Code",
+          emoji: "💻",
+          stat: `${data.languages.top?.percentage || 0}%`,
+          statLabel: "of your code",
+          gradient: "from-cyan-600 to-blue-600",
+        },
+        {
+          title: "Stars Earned",
+          subtitle: "Recognition from others",
+          emoji: "⭐",
+          stat: data.impact.totalStars.toLocaleString(),
+          statLabel: "total stars",
+          gradient: "from-yellow-600 to-amber-600",
+        },
+        {
+          title: data.personality.title,
+          subtitle: data.personality.tagline,
+          emoji: data.personality.emoji,
+          stat: "",
+          statLabel: "",
+          gradient: "from-emerald-600 to-cyan-600",
+          isPersonality: true,
+        },
+      ];
+
+      // Create temporary container
+      const container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "-9999px";
+      container.style.top = "0";
+      document.body.appendChild(container);
+
+      for (let i = 0; i < slides.length; i++) {
+        const slide = slides[i];
+        
+        // Create slide element
+        const slideEl = document.createElement("div");
+        slideEl.style.width = "1080px";
+        slideEl.style.height = "1080px";
+        slideEl.style.backgroundColor = "#0a0f0d";
+        slideEl.style.display = "flex";
+        slideEl.style.flexDirection = "column";
+        slideEl.style.alignItems = "center";
+        slideEl.style.justifyContent = "center";
+        slideEl.style.padding = "60px";
+        slideEl.style.fontFamily = "system-ui, -apple-system, sans-serif";
+        
+        slideEl.innerHTML = `
+          <div style="
+            background: linear-gradient(135deg, ${slide.gradient.includes('emerald') ? '#059669' : slide.gradient.includes('amber') ? '#d97706' : slide.gradient.includes('cyan') ? '#0891b2' : '#059669'}, ${slide.gradient.includes('cyan') ? '#0891b2' : slide.gradient.includes('orange') ? '#ea580c' : slide.gradient.includes('blue') ? '#2563eb' : '#14b8a6'});
+            width: 100%;
+            height: 100%;
+            border-radius: 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+            position: relative;
+            overflow: hidden;
+          ">
+            <div style="position: absolute; inset: 0; opacity: 0.1; background-image: url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fill-rule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fill-opacity=&quot;0.4&quot;%3E%3Cpath d=&quot;M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');"></div>
+            
+            <div style="font-size: 120px; margin-bottom: 20px; position: relative;">${slide.emoji}</div>
+            
+            <h1 style="font-size: 64px; font-weight: 900; color: white; text-align: center; margin: 0 0 16px 0; position: relative;">${slide.title}</h1>
+            
+            <p style="font-size: 32px; color: rgba(255,255,255,0.8); text-align: center; margin: 0 0 40px 0; position: relative;">${slide.subtitle}</p>
+            
+            ${slide.stat ? `
+              <div style="font-size: 140px; font-weight: 900; color: white; text-align: center; position: relative; line-height: 1;">${slide.stat}</div>
+              <p style="font-size: 28px; color: rgba(255,255,255,0.7); text-align: center; margin-top: 16px; position: relative;">${slide.statLabel}</p>
+            ` : ''}
+            
+            <div style="position: absolute; bottom: 40px; left: 60px; right: 60px; display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="/images/kubesimplify-logo.png" style="width: 40px; height: 40px; border-radius: 50%;" />
+                <span style="color: rgba(255,255,255,0.6); font-size: 18px;">Powered by Kubesimplify</span>
+              </div>
+              <span style="color: rgba(255,255,255,0.5); font-size: 16px;">@${data.user.login}</span>
+            </div>
+          </div>
+        `;
+        
+        container.appendChild(slideEl);
+        
+        // Capture
+        const canvas = await html2canvas(slideEl, {
+          backgroundColor: "#0a0f0d",
+          scale: 1,
+          logging: false,
+          useCORS: true,
+          width: 1080,
+          height: 1080,
+        });
+        
+        // Download
+        const link = document.createElement("a");
+        link.download = `github-wrapped-2025-${data.user.login}-slide-${i + 1}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        
+        container.removeChild(slideEl);
+        
+        // Small delay between downloads
+        await new Promise(r => setTimeout(r, 300));
+      }
+      
+      document.body.removeChild(container);
+    } catch (e) {
+      console.error("Export failed:", e);
+    } finally {
+      setDownloadingAll(false);
     }
   };
 
@@ -187,7 +338,20 @@ export default function SummarySlide({ data }: Props) {
           ) : (
             <Download className="w-5 h-5" />
           )}
-          {downloading ? "Generating..." : "Download"}
+          {downloading ? "Generating..." : "Download Card"}
+        </button>
+
+        <button
+          onClick={handleDownloadAllSlides}
+          disabled={downloadingAll}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50"
+        >
+          {downloadingAll ? (
+            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Images className="w-5 h-5" />
+          )}
+          {downloadingAll ? "Generating..." : "Download Carousel"}
         </button>
 
         <button
@@ -211,9 +375,9 @@ export default function SummarySlide({ data }: Props) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="mt-8 text-gray-500 text-center max-w-md"
+        className="mt-6 text-gray-500 text-center text-sm max-w-md"
       >
-        2025 was your year. Every commit, every review, every line of code—it all added up.
+        💡 <span className="text-emerald-400">Download Carousel</span> creates 6 slides perfect for Instagram/LinkedIn!
       </motion.p>
     </div>
   );

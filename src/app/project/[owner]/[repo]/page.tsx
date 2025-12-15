@@ -42,7 +42,7 @@ export interface ProjectData {
     issues: { total: number; open: number; closed: number; created2025: number };
     pullRequests: { total: number; open: number; merged: number; created2025: number; merged2025: number };
     commits: { total2025: number; monthly: Record<string, number>; weekly: Array<{ week: string; count: number }> };
-    contributors: { total: number; top: Array<{ login: string; avatarUrl: string; contributions: number }> };
+    contributors: { total: number; total2025?: number; top: Array<{ login: string; avatarUrl: string; contributions: number }> };
   };
   releases: {
     count2025: number;

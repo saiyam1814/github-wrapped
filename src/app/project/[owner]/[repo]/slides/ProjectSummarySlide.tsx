@@ -5,59 +5,16 @@ import { motion } from "framer-motion";
 import { Download, Twitter, RotateCcw, Star, GitPullRequest, Users, Tag, Flame, Images, Loader2 } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
-
-interface ProjectData {
-  name: string;
-  fullName: string;
-  description: string;
-  owner: {
-    login: string;
-    avatarUrl: string;
-  };
-  stars: number;
-  starsGained2025: number;
-  forks: number;
-  forksGained2025: number;
-  openIssues: number;
-  watchers: number;
-  createdAt: string;
-  primaryLanguage: string;
-  contributors: number;
-  newContributors2025: number;
-  totalPRs2025: number;
-  mergedPRs2025: number;
-  closedPRs2025: number;
-  totalIssues2025: number;
-  closedIssues2025: number;
-  totalCommits2025: number;
-  releases2025: Array<{
-    name: string;
-    tag: string;
-    date: string;
-    downloads: number;
-  }>;
-  totalDownloads2025: number;
-  totalReleases2025: number;
-  trendData: {
-    stars: Array<{ month: string; value: number }>;
-    commits: Array<{ month: string; value: number }>;
-  };
-  personality: {
-    title: string;
-    emoji: string;
-    tagline: string;
-    description: string;
-  };
-}
+import type { ProjectData } from "../page";
 
 interface Props {
   data: ProjectData;
-  onPrev: () => void;
+  onNext: () => void;
   onNavigateToSlide?: (index: number) => void;
   totalSlides?: number;
 }
 
-export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlides = 7 }: Props) {
+export default function ProjectSummarySlide({ data }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -83,6 +40,22 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
 
     return () => clearInterval(interval);
   }, []);
+
+  // Extract values safely
+  const repoName = data.repository?.name || "Project";
+  const fullName = data.repository?.nameWithOwner || "owner/repo";
+  const avatarUrl = data.repository?.owner?.avatarUrl || "";
+  const starsGained = data.stats?.stars?.gained2025 || 0;
+  const totalStars = data.stats?.stars?.total || 0;
+  const contributors = data.stats?.contributors?.total || 0;
+  const mergedPRs = data.stats?.pullRequests?.merged2025 || 0;
+  const totalCommits = data.stats?.commits?.total2025 || 0;
+  const totalReleases = data.releases?.count2025 || 0;
+  const totalDownloads = data.releases?.totalDownloads2025 || 0;
+  const forksGained = data.stats?.forks?.gained2025 || 0;
+  const totalPRs = data.stats?.pullRequests?.created2025 || 0;
+  const totalIssues = data.stats?.issues?.created2025 || 0;
+  const personality = data.personality || { title: "Innovator", emoji: "🚀", tagline: "Building the future" };
 
   // Generate card image using Canvas API
   const generateCardImage = async (): Promise<string> => {
@@ -110,37 +83,39 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
     ctx.fill();
     
     // Avatar
-    try {
-      const avatar = await loadImage(data.owner.avatarUrl);
-      const avatarSize = 70 * scale;
-      const avatarX = (width - avatarSize) / 2;
-      const avatarY = 45 * scale;
-      
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-      ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
-      ctx.restore();
-      
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 4 * scale;
-      ctx.beginPath();
-      ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
-      ctx.stroke();
-    } catch (e) {
-      ctx.fillStyle = "#1f2937";
-      ctx.beginPath();
-      ctx.arc(width/2, 80 * scale, 35 * scale, 0, Math.PI * 2);
-      ctx.fill();
+    if (avatarUrl) {
+      try {
+        const avatar = await loadImage(avatarUrl);
+        const avatarSize = 70 * scale;
+        const avatarX = (width - avatarSize) / 2;
+        const avatarY = 45 * scale;
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+        ctx.restore();
+        
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 4 * scale;
+        ctx.beginPath();
+        ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+        ctx.stroke();
+      } catch (e) {
+        ctx.fillStyle = "#1f2937";
+        ctx.beginPath();
+        ctx.arc(width/2, 80 * scale, 35 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     
     // Repo name
     ctx.fillStyle = "#ffffff";
     ctx.font = `bold ${18 * scale}px system-ui, -apple-system, sans-serif`;
     ctx.textAlign = "center";
-    ctx.fillText(data.name, width/2, 150 * scale);
+    ctx.fillText(repoName, width/2, 150 * scale);
     
     // Subtitle
     ctx.fillStyle = "rgba(255,255,255,0.8)";
@@ -157,12 +132,12 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
     
     // Stats
     const stats = [
-      { label: "Stars Gained", value: (data.starsGained2025 || 0).toLocaleString(), icon: "⭐" },
-      { label: "Contributors", value: (data.contributors || 0).toLocaleString(), icon: "👥" },
-      { label: "PRs Merged", value: (data.mergedPRs2025 || 0).toLocaleString(), icon: "🔀" },
-      { label: "Downloads", value: formatNumber(data.totalDownloads2025 || 0), icon: "📦" },
-      { label: "Commits", value: (data.totalCommits2025 || 0).toLocaleString(), icon: "📝" },
-      { label: "Releases", value: (data.totalReleases2025 || 0).toLocaleString(), icon: "🏷️" },
+      { label: "Stars Gained", value: starsGained.toLocaleString(), icon: "⭐" },
+      { label: "Contributors", value: contributors.toLocaleString(), icon: "👥" },
+      { label: "PRs Merged", value: mergedPRs.toLocaleString(), icon: "🔀" },
+      { label: "Downloads", value: formatNumber(totalDownloads), icon: "📦" },
+      { label: "Commits", value: totalCommits.toLocaleString(), icon: "📝" },
+      { label: "Releases", value: totalReleases.toLocaleString(), icon: "🏷️" },
     ];
     
     const statWidth = (width - 80 * scale) / 2;
@@ -199,13 +174,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
     
     ctx.fillStyle = "#10b981";
     ctx.font = `bold ${13 * scale}px system-ui, -apple-system, sans-serif`;
-    ctx.fillText(`${data.personality.title} ${data.personality.emoji}`, 40 * scale, 440 * scale);
-    
-    // Kubesimplify logo
-    try {
-      const logo = await loadImage("/images/kubesimplify-logo.png");
-      ctx.drawImage(logo, width - 80 * scale, 405 * scale, 50 * scale, 50 * scale);
-    } catch (e) {}
+    ctx.fillText(`${personality.title} ${personality.emoji}`, 40 * scale, 440 * scale);
     
     // Footer line
     ctx.strokeStyle = "rgba(255,255,255,0.1)";
@@ -236,7 +205,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
       const imageUrl = await generateCardImage();
       
       const link = document.createElement("a");
-      link.download = `github-wrapped-2025-${data.fullName.replace("/", "-")}.png`;
+      link.download = `github-wrapped-2025-${fullName.replace("/", "-")}.png`;
       link.href = imageUrl;
       document.body.appendChild(link);
       link.click();
@@ -250,30 +219,30 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
   };
 
   const handleDownloadAllSlides = async () => {
-    if (downloadingAll || !onNavigateToSlide) return;
+    if (downloadingAll) return;
     
     setDownloadingAll(true);
     setDownloadProgress(0);
     
     try {
       const slideData = [
-        { title: data.name, subtitle: "2025 Project Wrapped", emoji: "📦", stat: "", color1: "#059669", color2: "#0891b2" },
-        { title: "Stars Gained", subtitle: "Community recognition", emoji: "⭐", stat: (data.starsGained2025 || 0).toLocaleString(), color1: "#ca8a04", color2: "#d97706" },
-        { title: "Contributors", subtitle: `${data.newContributors2025 || 0} new in 2025`, emoji: "👥", stat: (data.contributors || 0).toLocaleString(), color1: "#059669", color2: "#0d9488" },
-        { title: "Releases", subtitle: `${formatNumber(data.totalDownloads2025 || 0)} downloads`, emoji: "🏷️", stat: (data.totalReleases2025 || 0).toLocaleString(), color1: "#7c3aed", color2: "#a855f7" },
-        { title: "Activity", subtitle: `${(data.totalPRs2025 || 0).toLocaleString()} PRs, ${(data.totalIssues2025 || 0).toLocaleString()} issues`, emoji: "📊", stat: `${(data.totalCommits2025 || 0).toLocaleString()} commits`, color1: "#0891b2", color2: "#2563eb" },
-        { title: "Impact", subtitle: `${(data.forksGained2025 || 0).toLocaleString()} forks in 2025`, emoji: "🚀", stat: `${(data.stars || 0).toLocaleString()} total stars`, color1: "#d97706", color2: "#ea580c" },
-        { title: data.personality.title, subtitle: data.personality.tagline, emoji: data.personality.emoji, stat: "", color1: "#059669", color2: "#0891b2" },
+        { title: repoName, subtitle: "2025 Project Wrapped", emoji: "📦", stat: "", color1: "#059669", color2: "#0891b2" },
+        { title: "Stars Gained", subtitle: "Community recognition", emoji: "⭐", stat: starsGained.toLocaleString(), color1: "#ca8a04", color2: "#d97706" },
+        { title: "Contributors", subtitle: `Building together`, emoji: "👥", stat: contributors.toLocaleString(), color1: "#059669", color2: "#0d9488" },
+        { title: "Releases", subtitle: `${formatNumber(totalDownloads)} downloads`, emoji: "🏷️", stat: totalReleases.toLocaleString(), color1: "#7c3aed", color2: "#a855f7" },
+        { title: "Activity", subtitle: `${totalPRs.toLocaleString()} PRs, ${totalIssues.toLocaleString()} issues`, emoji: "📊", stat: `${totalCommits.toLocaleString()} commits`, color1: "#0891b2", color2: "#2563eb" },
+        { title: "Impact", subtitle: `${forksGained.toLocaleString()} forks in 2025`, emoji: "🚀", stat: `${totalStars.toLocaleString()} total stars`, color1: "#d97706", color2: "#ea580c" },
+        { title: personality.title, subtitle: personality.tagline, emoji: personality.emoji, stat: "", color1: "#059669", color2: "#0891b2" },
       ];
       
       for (let i = 0; i < slideData.length; i++) {
         setDownloadProgress(Math.round(((i + 1) / slideData.length) * 100));
         
         const slide = slideData[i];
-        const imageUrl = await generateSlideImage(slide, data.owner.avatarUrl);
+        const imageUrl = await generateSlideImage(slide);
         
         const link = document.createElement("a");
-        link.download = `github-wrapped-2025-${data.fullName.replace("/", "-")}-slide-${i + 1}.png`;
+        link.download = `github-wrapped-2025-${fullName.replace("/", "-")}-slide-${i + 1}.png`;
         link.href = imageUrl;
         document.body.appendChild(link);
         link.click();
@@ -292,19 +261,19 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
   };
 
   const handleShare = () => {
-    const text = `📦 ${data.name} - 2025 Project Wrapped:\n\n⭐ ${(data.starsGained2025 || 0).toLocaleString()} stars gained\n👥 ${(data.contributors || 0).toLocaleString()} contributors\n🔀 ${(data.mergedPRs2025 || 0).toLocaleString()} PRs merged\n📦 ${formatNumber(data.totalDownloads2025 || 0)} downloads\n\n${data.personality.emoji} "${data.personality.title}"\n\nGet yours at https://github-wrapped-five.vercel.app`;
+    const text = `📦 ${repoName} - 2025 Project Wrapped:\n\n⭐ ${starsGained.toLocaleString()} stars gained\n👥 ${contributors.toLocaleString()} contributors\n🔀 ${mergedPRs.toLocaleString()} PRs merged\n📦 ${formatNumber(totalDownloads)} downloads\n\n${personality.emoji} "${personality.title}"\n\nGet yours at https://github-wrapped-five.vercel.app`;
 
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
 
-  const stats = [
-    { icon: Star, label: "Stars Gained", value: (data.starsGained2025 || 0).toLocaleString(), color: "#eab308" },
-    { icon: Users, label: "Contributors", value: (data.contributors || 0).toLocaleString(), color: "#10b981" },
-    { icon: GitPullRequest, label: "PRs Merged", value: (data.mergedPRs2025 || 0).toLocaleString(), color: "#06b6d4" },
-    { icon: Tag, label: "Downloads", value: formatNumber(data.totalDownloads2025 || 0), color: "#a855f7" },
-    { icon: Flame, label: "Commits", value: (data.totalCommits2025 || 0).toLocaleString(), color: "#f59e0b" },
-    { icon: Tag, label: "Releases", value: (data.totalReleases2025 || 0).toLocaleString(), color: "#ec4899" },
+  const statsForDisplay = [
+    { icon: Star, label: "Stars Gained", value: starsGained.toLocaleString(), color: "#eab308" },
+    { icon: Users, label: "Contributors", value: contributors.toLocaleString(), color: "#10b981" },
+    { icon: GitPullRequest, label: "PRs Merged", value: mergedPRs.toLocaleString(), color: "#06b6d4" },
+    { icon: Tag, label: "Downloads", value: formatNumber(totalDownloads), color: "#a855f7" },
+    { icon: Flame, label: "Commits", value: totalCommits.toLocaleString(), color: "#f59e0b" },
+    { icon: Tag, label: "Releases", value: totalReleases.toLocaleString(), color: "#ec4899" },
   ];
 
   return (
@@ -330,13 +299,15 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
           style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)" }}
         >
           <div className="relative flex justify-center">
-            <img
-              src={data.owner.avatarUrl}
-              alt={data.owner.login}
-              className="w-16 h-16 rounded-full border-4 border-white shadow-xl"
-            />
+            {avatarUrl && (
+              <img
+                src={avatarUrl}
+                alt={repoName}
+                className="w-16 h-16 rounded-full border-4 border-white shadow-xl"
+              />
+            )}
           </div>
-          <h2 className="relative text-lg font-black text-white text-center mt-2">{data.name}</h2>
+          <h2 className="relative text-lg font-black text-white text-center mt-2">{repoName}</h2>
           <p className="relative text-white/80 text-center text-xs">2025 Project Wrapped</p>
         </div>
 
@@ -345,7 +316,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
             className="grid grid-cols-2 gap-1.5 p-2.5 rounded-xl"
             style={{ backgroundColor: "#0d1512", border: "1px solid rgba(16, 185, 129, 0.2)" }}
           >
-            {stats.map((stat) => (
+            {statsForDisplay.map((stat) => (
               <div key={stat.label} className="p-2 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
                 <stat.icon className="w-3 h-3 mb-1" style={{ color: stat.color }} />
                 <div className="text-sm font-bold text-white">{stat.value}</div>
@@ -360,7 +331,7 @@ export default function ProjectSummarySlide({ data, onNavigateToSlide, totalSlid
             <div>
               <div className="text-[8px] text-gray-500 mb-0.5">Personality</div>
               <div className="text-xs font-bold text-emerald-400">
-                {data.personality.title} {data.personality.emoji}
+                {personality.title} {personality.emoji}
               </div>
             </div>
             <img 
@@ -479,8 +450,7 @@ function formatNumber(num: number): string {
 }
 
 async function generateSlideImage(
-  slide: { title: string; subtitle: string; emoji: string; stat: string; color1: string; color2: string },
-  avatarUrl: string
+  slide: { title: string; subtitle: string; emoji: string; stat: string; color1: string; color2: string }
 ): Promise<string> {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;

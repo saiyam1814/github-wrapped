@@ -15,6 +15,7 @@ import ActivitySlide from "./slides/ActivitySlide";
 import ImpactSlide from "./slides/ImpactSlide";
 import PersonalitySlide from "./slides/PersonalitySlide";
 import SummarySlide from "./slides/SummarySlide";
+import AudioPlayer from "@/components/AudioPlayer";
 
 import { generateDemoData, type DeveloperData } from "./utils";
 
@@ -274,6 +275,9 @@ export default function WrappedPage() {
       <div className="absolute bottom-4 left-4 text-xs text-gray-600">
         Use ← → arrows to navigate
       </div>
+
+      {/* Lofi Music Player */}
+      <AudioPlayer />
     </div>
   );
 }

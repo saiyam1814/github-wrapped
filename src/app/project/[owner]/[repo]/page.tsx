@@ -14,6 +14,7 @@ import ProjectReleasesSlide from "./slides/ProjectReleasesSlide";
 import ProjectActivitySlide from "./slides/ProjectActivitySlide";
 import ProjectImpactSlide from "./slides/ProjectImpactSlide";
 import ProjectSummarySlide from "./slides/ProjectSummarySlide";
+import AudioPlayer from "@/components/AudioPlayer";
 
 export interface ProjectData {
   type: string;
@@ -315,6 +316,9 @@ export default function ProjectWrappedPage() {
       <div className="absolute bottom-4 left-4 text-xs text-gray-600">
         Use ← → arrows to navigate
       </div>
+
+      {/* Lofi Music Player */}
+      <AudioPlayer />
     </div>
   );
 }

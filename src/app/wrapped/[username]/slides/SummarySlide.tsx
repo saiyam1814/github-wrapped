@@ -14,6 +14,59 @@ interface Props {
   totalSlides?: number;
 }
 
+// CSS override to fix oklab/lab colors for html2canvas
+const CSS_COLOR_FIX = `
+  * {
+    --tw-gradient-from: #10b981 !important;
+    --tw-gradient-to: #06b6d4 !important;
+    --tw-gradient-stops: #10b981, #06b6d4 !important;
+  }
+  .text-emerald-400 { color: #34d399 !important; }
+  .text-cyan-400 { color: #22d3ee !important; }
+  .text-amber-400 { color: #fbbf24 !important; }
+  .text-yellow-400 { color: #facc15 !important; }
+  .text-purple-400 { color: #c084fc !important; }
+  .text-pink-400 { color: #f472b6 !important; }
+  .text-green-400 { color: #4ade80 !important; }
+  .text-blue-400 { color: #60a5fa !important; }
+  .text-red-400 { color: #f87171 !important; }
+  .text-orange-400 { color: #fb923c !important; }
+  .text-gray-400 { color: #9ca3af !important; }
+  .text-gray-500 { color: #6b7280 !important; }
+  .text-gray-600 { color: #4b5563 !important; }
+  .text-white { color: #ffffff !important; }
+  .bg-emerald-500 { background-color: #10b981 !important; }
+  .bg-cyan-500 { background-color: #06b6d4 !important; }
+  .bg-purple-500 { background-color: #a855f7 !important; }
+  .bg-pink-500 { background-color: #ec4899 !important; }
+  .bg-amber-500 { background-color: #f59e0b !important; }
+  .bg-yellow-500 { background-color: #eab308 !important; }
+  .from-emerald-500 { --tw-gradient-from: #10b981 !important; }
+  .to-cyan-500 { --tw-gradient-to: #06b6d4 !important; }
+  .from-emerald-600 { --tw-gradient-from: #059669 !important; }
+  .to-cyan-600 { --tw-gradient-to: #0891b2 !important; }
+  .from-purple-500 { --tw-gradient-from: #a855f7 !important; }
+  .to-pink-500 { --tw-gradient-to: #ec4899 !important; }
+  .from-amber-600 { --tw-gradient-from: #d97706 !important; }
+  .to-orange-600 { --tw-gradient-to: #ea580c !important; }
+  .border-emerald-500\\/20 { border-color: rgba(16, 185, 129, 0.2) !important; }
+  .border-white\\/5 { border-color: rgba(255, 255, 255, 0.05) !important; }
+  .border-white\\/10 { border-color: rgba(255, 255, 255, 0.1) !important; }
+  .bg-white\\/5 { background-color: rgba(255, 255, 255, 0.05) !important; }
+  .bg-white\\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
+  .bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
+  .bg-gradient-to-br { background-image: linear-gradient(to bottom right, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
+  .bg-gradient-to-t { background-image: linear-gradient(to top, var(--tw-gradient-from), var(--tw-gradient-to)) !important; }
+  .bg-\\[\\#0a0f0d\\] { background-color: #0a0f0d !important; }
+  .bg-\\[\\#0d1512\\] { background-color: #0d1512 !important; }
+  .bg-mesh { background-color: #0a0f0d !important; }
+  .text-gradient { 
+    background: linear-gradient(90deg, #10b981, #06b6d4) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+  }
+`;
+
 export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
@@ -47,8 +100,14 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
 
     setDownloading(true);
     try {
-      // Dynamic import to avoid SSR issues
       const html2canvas = (await import("html2canvas")).default;
+      
+      // Add CSS fix
+      const style = document.createElement("style");
+      style.textContent = CSS_COLOR_FIX;
+      document.head.appendChild(style);
+      
+      await new Promise(r => setTimeout(r, 100));
       
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: "#0a0f0d",
@@ -56,11 +115,10 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         logging: false,
         useCORS: true,
         allowTaint: true,
-        // Ignore computed styles that html2canvas can't handle
-        ignoreElements: (element) => {
-          return element.tagName === 'NOSCRIPT';
-        },
       });
+
+      // Remove CSS fix
+      document.head.removeChild(style);
 
       const link = document.createElement("a");
       link.download = `github-wrapped-2025-${data.user.login}.png`;
@@ -70,8 +128,6 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
       document.body.removeChild(link);
     } catch (e) {
       console.error("Export failed:", e);
-      // Fallback: open print dialog
-      window.print();
     } finally {
       setDownloading(false);
     }
@@ -85,6 +141,12 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
     setDownloadingAll(true);
     setDownloadProgress(0);
     
+    // Add CSS fix for all slides
+    const style = document.createElement("style");
+    style.id = "html2canvas-color-fix";
+    style.textContent = CSS_COLOR_FIX;
+    document.head.appendChild(style);
+    
     try {
       const html2canvas = (await import("html2canvas")).default;
       
@@ -95,7 +157,7 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         onNavigateToSlide(i);
         
         // Wait for animation to complete
-        await new Promise(r => setTimeout(r, 1200));
+        await new Promise(r => setTimeout(r, 1500));
         
         // Find the slide content area
         const slideContent = document.querySelector('[data-slide-content]');
@@ -130,8 +192,12 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
       
     } catch (e) {
       console.error("Export failed:", e);
-      alert("Download failed. Your browser may not support this feature.");
+      alert("Download failed. Please try again.");
     } finally {
+      // Remove CSS fix
+      const styleEl = document.getElementById("html2canvas-color-fix");
+      if (styleEl) document.head.removeChild(styleEl);
+      
       setDownloadingAll(false);
       setDownloadProgress(0);
     }
@@ -157,11 +223,12 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-4xl md:text-5xl font-black text-center mb-6"
+        style={{ color: "#ffffff" }}
       >
         That's a wrap! 🎬
       </motion.h1>
 
-      {/* Shareable Card - Using inline styles for html2canvas compatibility */}
+      {/* Shareable Card */}
       <motion.div
         ref={cardRef}
         initial={{ y: 50, opacity: 0, rotateX: 20 }}
@@ -170,7 +237,7 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
         className="relative w-full max-w-sm overflow-hidden rounded-3xl shadow-2xl"
         style={{ backgroundColor: "#0a0f0d" }}
       >
-        {/* Header - Using inline gradient for compatibility */}
+        {/* Header */}
         <div 
           className="relative p-6 pb-16"
           style={{ background: "linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)" }}
@@ -217,12 +284,7 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
               <div className="text-[10px] mb-0.5" style={{ color: "#6b7280" }}>Personality</div>
               <div 
                 className="text-sm font-bold"
-                style={{ 
-                  background: "linear-gradient(90deg, #10b981, #06b6d4)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text"
-                }}
+                style={{ color: "#10b981" }}
               >
                 {data.personality.title} {data.personality.emoji}
               </div>

@@ -4,7 +4,7 @@ const GITHUB_GRAPHQL_API = "https://api.github.com/graphql";
 const GITHUB_REST_API = "https://api.github.com";
 const CURRENT_YEAR = 2025;
 
-// Simplified GraphQL query for repository data
+// Minimal GraphQL query - NO releases (we'll use REST for that)
 const REPOSITORY_QUERY = `
 query RepoWrapped($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
@@ -29,23 +29,6 @@ query RepoWrapped($owner: String!, $name: String!) {
     }
     
     licenseInfo { name }
-    
-    releases(first: 50, orderBy: { field: CREATED_AT, direction: DESC }) {
-      totalCount
-      nodes {
-        name
-        tagName
-        publishedAt
-        isPrerelease
-        isDraft
-        releaseAssets(first: 20) {
-          nodes {
-            name
-            downloadCount
-          }
-        }
-      }
-    }
     
     issues(states: [OPEN, CLOSED]) {
       totalCount
@@ -127,6 +110,71 @@ async function fetchREST(endpoint: string, token: string) {
   }
 }
 
+// Fetch releases via REST API - only 2025, skip alpha/beta
+async function fetchReleases2025(owner: string, name: string, token: string) {
+  const releases: any[] = [];
+  let totalDownloads = 0;
+  
+  try {
+    // Fetch only first 30 releases (most recent)
+    const data = await fetchREST(`/repos/${owner}/${name}/releases?per_page=30`, token);
+    
+    if (!Array.isArray(data)) {
+      return { count: 0, totalDownloads: 0, releases: [] };
+    }
+    
+    for (const release of data) {
+      // Skip if not published in 2025
+      if (!release.published_at) continue;
+      const publishedYear = new Date(release.published_at).getFullYear();
+      if (publishedYear !== CURRENT_YEAR) continue;
+      
+      // Skip prereleases and drafts
+      if (release.prerelease || release.draft) continue;
+      
+      // Skip alpha/beta/rc/preview
+      const tagLower = (release.tag_name || "").toLowerCase();
+      const nameLower = (release.name || "").toLowerCase();
+      if (
+        tagLower.includes("alpha") || 
+        tagLower.includes("beta") || 
+        tagLower.includes("-rc") || 
+        tagLower.includes("preview") ||
+        nameLower.includes("alpha") || 
+        nameLower.includes("beta") ||
+        nameLower.includes("preview")
+      ) {
+        continue;
+      }
+      
+      // Sum downloads from assets
+      let releaseDownloads = 0;
+      if (release.assets && Array.isArray(release.assets)) {
+        for (const asset of release.assets) {
+          releaseDownloads += asset.download_count || 0;
+        }
+      }
+      
+      totalDownloads += releaseDownloads;
+      
+      releases.push({
+        name: release.name || release.tag_name,
+        tagName: release.tag_name,
+        publishedAt: release.published_at,
+        downloads: releaseDownloads,
+      });
+    }
+  } catch (e) {
+    console.error("Error fetching releases:", e);
+  }
+  
+  return {
+    count: releases.length,
+    totalDownloads,
+    releases: releases.slice(0, 10), // Top 10
+  };
+}
+
 async function getYearlyStats(owner: string, name: string, token: string, year: number) {
   // Fetch contributors (limited)
   let contributors: any[] = [];
@@ -170,7 +218,6 @@ async function getYearlyStats(owner: string, name: string, token: string, year: 
     });
   }
   
-  // Estimate 2025 stats (we can't easily get exact counts without pagination)
   const totalCommits2025 = Object.values(monthlyCommits).reduce((a, b) => a + b, 0);
   
   return {
@@ -187,51 +234,6 @@ async function getYearlyStats(owner: string, name: string, token: string, year: 
       weekly: weeklyCommitsData,
       totalThisYear: totalCommits2025,
     },
-  };
-}
-
-function processReleases(releases: any[], year: number) {
-  // Filter releases for this year, excluding prereleases/drafts/alpha/beta
-  const validReleases = releases.filter((release: any) => {
-    if (!release.publishedAt) return false;
-    const publishedYear = new Date(release.publishedAt).getFullYear();
-    if (publishedYear !== year) return false;
-    if (release.isPrerelease || release.isDraft) return false;
-    
-    // Skip alpha/beta releases
-    const tagLower = (release.tagName || "").toLowerCase();
-    const nameLower = (release.name || "").toLowerCase();
-    if (tagLower.includes("alpha") || tagLower.includes("beta") || 
-        tagLower.includes("-rc") || tagLower.includes("preview") ||
-        nameLower.includes("alpha") || nameLower.includes("beta") ||
-        nameLower.includes("preview")) {
-      return false;
-    }
-    
-    return true;
-  });
-  
-  // Calculate total downloads
-  let totalDownloads = 0;
-  const releaseDetails = validReleases.map((release: any) => {
-    const downloads = release.releaseAssets?.nodes?.reduce(
-      (sum: number, asset: any) => sum + (asset.downloadCount || 0),
-      0
-    ) || 0;
-    totalDownloads += downloads;
-    
-    return {
-      name: release.name || release.tagName,
-      tagName: release.tagName,
-      publishedAt: release.publishedAt,
-      downloads,
-    };
-  });
-  
-  return {
-    count: validReleases.length,
-    totalDownloads,
-    releases: releaseDetails.slice(0, 10),
   };
 }
 
@@ -326,7 +328,7 @@ export async function GET(request: NextRequest) {
   try {
     const year = CURRENT_YEAR;
 
-    // Fetch main repo data via GraphQL
+    // Fetch main repo data via GraphQL (no releases!)
     const graphqlData = await graphql(REPOSITORY_QUERY, { owner, name }, token);
     
     if (!graphqlData.repository) {
@@ -335,11 +337,11 @@ export async function GET(request: NextRequest) {
     
     const repo = graphqlData.repository;
     
+    // Fetch releases via REST API (more reliable)
+    const releaseData = await fetchReleases2025(owner, name, token);
+    
     // Fetch additional yearly stats via REST API
     const yearlyStats = await getYearlyStats(owner, name, token, year);
-    
-    // Process releases
-    const releaseData = processReleases(repo.releases?.nodes || [], year);
     
     // Process languages
     const languages = (repo.languages?.edges || []).map((edge: any) => ({
@@ -381,7 +383,7 @@ export async function GET(request: NextRequest) {
       stats: {
         stars: {
           total: repo.stargazerCount,
-          gained2025: 0, // Simplified - would need more API calls
+          gained2025: 0,
         },
         forks: {
           total: repo.forkCount,
@@ -408,11 +410,7 @@ export async function GET(request: NextRequest) {
         },
         contributors: yearlyStats.contributors,
       },
-      releases: {
-        count2025: releaseData.count,
-        totalDownloads2025: releaseData.totalDownloads,
-        releases: releaseData.releases,
-      },
+      releases: releaseData,
       activity: {
         monthlyCommits: yearlyStats.commits.monthly,
         weeklyCommits: yearlyStats.commits.weekly,

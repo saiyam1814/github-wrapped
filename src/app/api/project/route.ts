@@ -64,19 +64,19 @@ async function graphql(query: string, variables: Record<string, any>, token: str
   return data.data;
 }
 
-async function fetchREST(endpoint: string, token: string): Promise<any> {
+async function fetchREST(endpoint: string, token: string, customHeaders?: Record<string, string>): Promise<any> {
   try {
     const response = await fetch(`${GITHUB_REST_API}${endpoint}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",
+        ...customHeaders,
       },
     });
     
     if (response.status === 202) {
-      // GitHub is computing stats, wait and retry
       await new Promise(r => setTimeout(r, 2000));
-      return fetchREST(endpoint, token);
+      return fetchREST(endpoint, token, customHeaders);
     }
     
     if (!response.ok) {
@@ -89,12 +89,118 @@ async function fetchREST(endpoint: string, token: string): Promise<any> {
   }
 }
 
+// Get stars gained in 2025 by sampling recent stargazers
+async function getStarsGained2025(owner: string, name: string, token: string, totalStars: number): Promise<number> {
+  try {
+    // For repos with many stars, sample the last pages to estimate
+    // GitHub API returns stargazers in chronological order (oldest first)
+    // So we need to get the last pages for recent stars
+    
+    let starsIn2025 = 0;
+    const perPage = 100;
+    
+    // Calculate how many pages we have
+    const totalPages = Math.ceil(totalStars / perPage);
+    
+    // Start from the last page and work backwards
+    // We'll check up to 30 pages (3000 stars) to get a reasonable sample
+    const pagesToCheck = Math.min(30, totalPages);
+    const startPage = Math.max(1, totalPages - pagesToCheck + 1);
+    
+    for (let page = totalPages; page >= startPage && page >= 1; page--) {
+      const data = await fetch(
+        `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=${page}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.star+json", // This gives us starred_at timestamps!
+          },
+        }
+      );
+      
+      if (!data.ok) break;
+      
+      const stargazers = await data.json();
+      if (!Array.isArray(stargazers) || stargazers.length === 0) break;
+      
+      let foundOlderStar = false;
+      
+      for (const star of stargazers) {
+        if (star.starred_at) {
+          const starYear = new Date(star.starred_at).getFullYear();
+          if (starYear === CURRENT_YEAR) {
+            starsIn2025++;
+          } else if (starYear < CURRENT_YEAR) {
+            // Found a star from before 2025, all earlier pages will be older
+            foundOlderStar = true;
+          }
+        }
+      }
+      
+      // If all stars on this page are from before 2025, no need to check earlier pages
+      if (foundOlderStar && starsIn2025 === 0) {
+        break;
+      }
+      
+      // Small delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 100));
+    }
+    
+    return starsIn2025;
+  } catch (e) {
+    console.error("Error fetching stargazers:", e);
+    return 0;
+  }
+}
+
+// Get forks created in 2025
+async function getForksGained2025(owner: string, name: string, token: string): Promise<number> {
+  try {
+    let forksIn2025 = 0;
+    let page = 1;
+    const maxPages = 20; // Check up to 2000 forks
+    
+    while (page <= maxPages) {
+      const data = await fetchREST(
+        `/repos/${owner}/${name}/forks?sort=newest&per_page=100&page=${page}`,
+        token
+      );
+      
+      if (!Array.isArray(data) || data.length === 0) break;
+      
+      let foundOlderFork = false;
+      
+      for (const fork of data) {
+        if (fork.created_at) {
+          const forkYear = new Date(fork.created_at).getFullYear();
+          if (forkYear === CURRENT_YEAR) {
+            forksIn2025++;
+          } else {
+            foundOlderFork = true;
+            break; // Since sorted by newest, all remaining will be older
+          }
+        }
+      }
+      
+      if (foundOlderFork) break;
+      if (data.length < 100) break;
+      
+      page++;
+    }
+    
+    return forksIn2025;
+  } catch (e) {
+    console.error("Error fetching forks:", e);
+    return 0;
+  }
+}
+
 // Fetch ALL releases and filter for 2025, calculate total downloads
 async function fetchAllReleases2025(owner: string, name: string, token: string) {
   const releases2025: any[] = [];
   let totalDownloads = 0;
   let page = 1;
-  const maxPages = 10; // Up to 1000 releases
+  const maxPages = 10;
   
   try {
     while (page <= maxPages) {
@@ -106,7 +212,6 @@ async function fetchAllReleases2025(owner: string, name: string, token: string) 
       if (!Array.isArray(data) || data.length === 0) break;
       
       for (const release of data) {
-        // Calculate downloads for ALL releases (for total count)
         let releaseDownloads = 0;
         if (release.assets && Array.isArray(release.assets)) {
           for (const asset of release.assets) {
@@ -114,15 +219,12 @@ async function fetchAllReleases2025(owner: string, name: string, token: string) 
           }
         }
         
-        // Check if it's a 2025 release
         if (release.published_at) {
           const publishedYear = new Date(release.published_at).getFullYear();
           
           if (publishedYear === CURRENT_YEAR) {
-            // Skip prereleases/drafts for the count
             if (release.prerelease || release.draft) continue;
             
-            // Skip alpha/beta/rc/preview
             const tagLower = (release.tag_name || "").toLowerCase();
             const nameLower = (release.name || "").toLowerCase();
             if (
@@ -156,13 +258,12 @@ async function fetchAllReleases2025(owner: string, name: string, token: string) 
     console.error("Error fetching releases:", e);
   }
   
-  // Sort by downloads descending
   releases2025.sort((a, b) => b.downloads - a.downloads);
   
   return {
     count: releases2025.length,
     totalDownloads,
-    releases: releases2025.slice(0, 10), // Top 10 by downloads
+    releases: releases2025.slice(0, 10),
   };
 }
 
@@ -208,10 +309,9 @@ async function getIssuesCreated2025(owner: string, name: string, token: string) 
   }
 }
 
-// Get commit count for 2025 using commits API
+// Get commit count for 2025
 async function getCommits2025(owner: string, name: string, token: string) {
   try {
-    // Use the commits API with since/until parameters
     const response = await fetch(
       `${GITHUB_REST_API}/repos/${owner}/${name}/commits?since=2025-01-01T00:00:00Z&until=2025-12-31T23:59:59Z&per_page=1`,
       {
@@ -224,7 +324,6 @@ async function getCommits2025(owner: string, name: string, token: string) {
     
     if (!response.ok) return 0;
     
-    // Get total from Link header
     const linkHeader = response.headers.get("Link");
     if (linkHeader) {
       const match = linkHeader.match(/page=(\d+)>; rel="last"/);
@@ -233,7 +332,6 @@ async function getCommits2025(owner: string, name: string, token: string) {
       }
     }
     
-    // Fallback: count the response
     const data = await response.json();
     return Array.isArray(data) ? data.length : 0;
   } catch {
@@ -246,7 +344,6 @@ async function getMonthlyCommits(owner: string, name: string, token: string) {
   const monthlyCommits: Record<string, number> = {};
   
   try {
-    // Try stats API first
     const statsData = await fetchREST(`/repos/${owner}/${name}/stats/commit_activity`, token);
     
     if (Array.isArray(statsData)) {
@@ -269,7 +366,6 @@ async function getMonthlyCommits(owner: string, name: string, token: string) {
 
 async function getContributors(owner: string, name: string, token: string) {
   try {
-    // Get contributor count from header
     const response = await fetch(
       `${GITHUB_REST_API}/repos/${owner}/${name}/contributors?per_page=1&anon=false`,
       {
@@ -289,7 +385,6 @@ async function getContributors(owner: string, name: string, token: string) {
       }
     }
     
-    // Fetch top contributors
     const topData = await fetchREST(`/repos/${owner}/${name}/contributors?per_page=10`, token);
     const top = Array.isArray(topData) ? topData.map((c: any) => ({
       login: c.login,
@@ -307,12 +402,16 @@ async function getContributors(owner: string, name: string, token: string) {
 }
 
 function classifyProjectPersonality(data: any) {
-  const { stars, forks, contributors, releases, commits, prs } = data;
+  const { stars, forks, contributors, releases, commits, prs, starsGained, forksGained } = data;
   
   let archetype = "growing-project";
   const traits: any[] = [];
   
-  if (stars >= 10000) {
+  // Consider 2025 growth for personality
+  if (starsGained >= 5000) {
+    archetype = "viral-sensation";
+    traits.push({ name: "Viral Growth", description: `+${(starsGained/1000).toFixed(1)}k stars this year!`, icon: "🔥" });
+  } else if (stars >= 10000) {
     archetype = "community-powerhouse";
     traits.push({ name: "Massively Popular", description: `${(stars/1000).toFixed(1)}k stars`, icon: "🌟" });
   } else if (stars >= 1000) {
@@ -336,8 +435,8 @@ function classifyProjectPersonality(data: any) {
     traits.push({ name: "PR Magnet", description: `${prs}+ PRs`, icon: "🔄" });
   }
   
-  if (forks >= 500) {
-    traits.push({ name: "Fork Magnet", description: `${forks}+ forks`, icon: "🍴" });
+  if (forksGained >= 500) {
+    traits.push({ name: "Fork Explosion", description: `+${forksGained} forks in 2025`, icon: "🍴" });
   }
   
   if (traits.length === 0) {
@@ -345,6 +444,12 @@ function classifyProjectPersonality(data: any) {
   }
   
   const archetypeDetails: Record<string, any> = {
+    "viral-sensation": {
+      title: "Viral Sensation",
+      emoji: "🔥",
+      tagline: "The internet can't stop talking about you",
+      description: "Explosive growth that's turning heads everywhere.",
+    },
     "community-powerhouse": {
       title: "Community Powerhouse",
       emoji: "🏛️",
@@ -398,6 +503,7 @@ export async function GET(request: NextRequest) {
     }
     
     const repo = graphqlData.repository;
+    const totalStars = repo.stargazerCount || 0;
     
     // Fetch all 2025 stats in parallel via REST API
     const [
@@ -408,6 +514,8 @@ export async function GET(request: NextRequest) {
       commits2025,
       monthlyCommits,
       contributors,
+      starsGained2025,
+      forksGained2025,
     ] = await Promise.all([
       fetchAllReleases2025(owner, name, token),
       getPRsCreated2025(owner, name, token),
@@ -416,6 +524,8 @@ export async function GET(request: NextRequest) {
       getCommits2025(owner, name, token),
       getMonthlyCommits(owner, name, token),
       getContributors(owner, name, token),
+      getStarsGained2025(owner, name, token, totalStars),
+      getForksGained2025(owner, name, token),
     ]);
     
     // Process languages
@@ -431,17 +541,19 @@ export async function GET(request: NextRequest) {
     const monthlyTotal = Object.values(monthlyCommits).reduce((a: number, b: any) => a + (b || 0), 0);
     const finalCommits = commits2025 > 0 ? commits2025 : monthlyTotal;
     
-    // Calculate project personality
+    // Calculate project personality with 2025 growth data
     const personality = classifyProjectPersonality({
-      stars: repo.stargazerCount,
+      stars: totalStars,
       forks: repo.forkCount,
       contributors: contributors.total,
       releases: releaseData.count,
       commits: finalCommits,
       prs: prsCreated,
+      starsGained: starsGained2025,
+      forksGained: forksGained2025,
     });
     
-    // Build response with all numbers as actual numbers (not NaN)
+    // Build response
     const wrappedData = {
       type: "project",
       year: CURRENT_YEAR,
@@ -463,12 +575,12 @@ export async function GET(request: NextRequest) {
       },
       stats: {
         stars: {
-          total: repo.stargazerCount || 0,
-          gained2025: 0,
+          total: totalStars,
+          gained2025: starsGained2025,
         },
         forks: {
           total: repo.forkCount || 0,
-          gained2025: 0,
+          gained2025: forksGained2025,
         },
         watchers: repo.watchers?.totalCount || 0,
         issues: {

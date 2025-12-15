@@ -123,7 +123,7 @@ async function getStarsGained2025(owner: string, name: string, token: string): P
   let lastPage = 1;
   const link = firstResp.link;
   if (link) {
-    const match = link.match(/page=(\\d+)>; rel="last"/);
+    const match = link.match(/page=(\d+)>; rel="last"/);
     if (match) lastPage = parseInt(match[1], 10);
   }
 

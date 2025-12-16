@@ -2,7 +2,7 @@
 
 > Your year in code, beautifully wrapped. A Spotify Wrapped-style experience for your GitHub activity.
 
-Similar to [git-wrapped.com](https://git-wrapped.com/), users just enter their GitHub username—no token required!
+Users just enter their GitHub username—no token required!
 
 ## ✨ Features
 

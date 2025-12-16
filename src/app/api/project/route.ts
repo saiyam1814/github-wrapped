@@ -90,14 +90,29 @@ async function fetchREST(endpoint: string, token: string, customHeaders?: Record
 }
 
 // Get stars gained in 2025
-// IMPORTANT: GitHub's stargazers API with timestamps is LIMITED to 400 pages (40k stars).
-// For repos with >40k stars, we can only see the OLDEST stars, not recent ones.
-// In such cases, we return -1 to indicate "data unavailable".
-async function getStarsGained2025(owner: string, name: string, token: string): Promise<number> {
+// Strategy:
+// 1. If repo was created in 2025, ALL stars are 2025 stars - just return total
+// 2. Otherwise, iterate from LAST page (newest stars) backwards until we hit pre-2025 stars
+// NOTE: GitHub's stargazers API returns oldest-first, so we must start from end
+async function getStarsGained2025(
+  owner: string, 
+  name: string, 
+  token: string, 
+  totalStars: number,
+  repoCreatedAt: string
+): Promise<number> {
   try {
+    // If repo created in 2025, ALL stars are from 2025
+    const createdYear = new Date(repoCreatedAt).getFullYear();
+    if (createdYear === CURRENT_YEAR) {
+      return totalStars;
+    }
+
+    // For older repos, we need to count 2025 stars by iterating backwards
+    let starsIn2025 = 0;
     const perPage = 100;
     
-    // Get first page and check Link header
+    // First, get the last page number from Link header
     const firstResp = await fetch(
       `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=1`,
       {
@@ -113,60 +128,30 @@ async function getStarsGained2025(owner: string, name: string, token: string): P
     const linkHeader = firstResp.headers.get("Link") || "";
     let lastPage = 1;
     
+    // Parse the "last" page from Link header
     const lastMatch = linkHeader.match(/page=(\d+)>; rel="last"/);
     if (lastMatch) {
       lastPage = parseInt(lastMatch[1], 10);
     }
     
-    const firstData = await firstResp.json();
-    if (!Array.isArray(firstData)) return 0;
-    
-    // For single-page repos, count directly
+    // Handle single-page repos
     if (lastPage === 1) {
-      let count = 0;
-      for (const star of firstData) {
-        if (star.starred_at && new Date(star.starred_at).getFullYear() === CURRENT_YEAR) {
-          count++;
-        }
-      }
-      return count;
-    }
-    
-    // Check if we're at the 400 page limit (GitHub's hard cap for timestamp API)
-    // If so, check if the LAST accessible page still has old stars
-    if (lastPage >= 400) {
-      // Fetch the last accessible page to check dates
-      const lastPageResp = await fetch(
-        `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=${lastPage}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/vnd.github.star+json",
-          },
-        }
-      );
-      
-      if (lastPageResp.ok) {
-        const lastPageData = await lastPageResp.json();
-        if (Array.isArray(lastPageData) && lastPageData.length > 0) {
-          // Check if the newest accessible star is still old
-          const newestAccessible = lastPageData[lastPageData.length - 1];
-          if (newestAccessible?.starred_at) {
-            const newestYear = new Date(newestAccessible.starred_at).getFullYear();
-            // If the "newest" star we can see is from before 2024, we can't see 2025 stars
-            if (newestYear < 2024) {
-              return -1; // Signal: data unavailable due to API limits
-            }
+      const stargazers = await firstResp.json();
+      if (Array.isArray(stargazers)) {
+        for (const star of stargazers) {
+          if (star.starred_at && new Date(star.starred_at).getFullYear() === CURRENT_YEAR) {
+            starsIn2025++;
           }
         }
       }
+      return starsIn2025;
     }
     
-    // Otherwise, start from last page and work backwards
-    let starsIn2025 = 0;
-    const maxPagesToCheck = Math.min(50, lastPage);
+    // GitHub API limits to ~400 pages with timestamps
+    // Iterate backwards from last page (newest stars) to find all 2025 stars
+    const maxPagesToCheck = Math.min(400, lastPage); // API limit is ~400 pages
     
-    for (let page = lastPage; page > lastPage - maxPagesToCheck && page >= 1; page--) {
+    for (let page = lastPage; page > Math.max(0, lastPage - maxPagesToCheck); page--) {
       const resp = await fetch(
         `${GITHUB_REST_API}/repos/${owner}/${name}/stargazers?per_page=${perPage}&page=${page}`,
         {
@@ -182,23 +167,23 @@ async function getStarsGained2025(owner: string, name: string, token: string): P
       const stargazers = await resp.json();
       if (!Array.isArray(stargazers) || stargazers.length === 0) break;
       
-      let found2025 = false;
-      let foundOlder = false;
+      let foundPre2025 = false;
       
       for (const star of stargazers) {
-        if (!star?.starred_at) continue;
+        if (!star.starred_at) continue;
         const year = new Date(star.starred_at).getFullYear();
         if (year === CURRENT_YEAR) {
           starsIn2025++;
-          found2025 = true;
         } else if (year < CURRENT_YEAR) {
-          foundOlder = true;
+          foundPre2025 = true;
         }
       }
       
-      if (foundOlder && !found2025) break;
+      // If we found pre-2025 stars on this page, we've counted all 2025 stars
+      if (foundPre2025) break;
       
-      await new Promise((r) => setTimeout(r, 50));
+      // Small delay to avoid rate limiting
+      await new Promise((r) => setTimeout(r, 30));
     }
     
     return starsIn2025;
@@ -207,11 +192,24 @@ async function getStarsGained2025(owner: string, name: string, token: string): P
     return 0;
   }
 }
-async function getForksGained2025(owner: string, name: string, token: string): Promise<number> {
+
+async function getForksGained2025(
+  owner: string, 
+  name: string, 
+  token: string,
+  totalForks: number,
+  repoCreatedAt: string
+): Promise<number> {
   try {
+    // If repo was created in 2025, ALL forks are from 2025
+    const createdYear = new Date(repoCreatedAt).getFullYear();
+    if (createdYear === CURRENT_YEAR) {
+      return totalForks;
+    }
+    
     let forksIn2025 = 0;
     let page = 1;
-    const maxPages = 20; // Check up to 2000 forks
+    const maxPages = 100; // Check up to 10k forks
     
     while (page <= maxPages) {
       const data = await fetchREST(
@@ -239,6 +237,9 @@ async function getForksGained2025(owner: string, name: string, token: string): P
       if (data.length < 100) break;
       
       page++;
+      
+      // Small delay to avoid rate limiting
+      await new Promise((r) => setTimeout(r, 20));
     }
     
     return forksIn2025;
@@ -643,8 +644,8 @@ export async function GET(request: NextRequest) {
       getMonthlyCommits(owner, name, token),
       getContributors(owner, name, token),      // all-time fallback
       getContributors2025(owner, name, token),  // 2025-active contributors
-      getStarsGained2025(owner, name, token),
-      getForksGained2025(owner, name, token),
+      getStarsGained2025(owner, name, token, totalStars, repo.createdAt),
+      getForksGained2025(owner, name, token, repo.forkCount || 0, repo.createdAt),
     ]);
     
     // Process languages

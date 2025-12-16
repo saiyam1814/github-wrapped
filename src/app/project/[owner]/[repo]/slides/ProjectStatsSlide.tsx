@@ -53,15 +53,19 @@ export default function ProjectStatsSlide({ data }: Props) {
   const totalStars = stats?.stars?.total || 0;
   const starsGrowthPercent = totalStars > 0 ? Math.round((starsGained2025 / (totalStars - starsGained2025)) * 100) : 0;
 
+  // Check if stars data is unavailable (API limit for large repos)
+  const starsUnavailable = starsGained2025 === -1;
+  
   const mainStats = [
     { 
-      label: "Stars Gained", 
-      value: starsGained2025, 
+      label: starsUnavailable ? "Total Stars" : "Stars Gained", 
+      value: starsUnavailable ? totalStars : starsGained2025, 
       icon: Star, 
       color: "text-yellow-400", 
       bg: "bg-yellow-500/10",
       fill: true,
-      prefix: "+",
+      prefix: starsUnavailable ? "" : "+",
+      note: starsUnavailable ? "(2025 data unavailable)" : null,
     },
     { 
       label: "Forks Gained", 
@@ -71,6 +75,7 @@ export default function ProjectStatsSlide({ data }: Props) {
       bg: "bg-emerald-500/10",
       fill: false,
       prefix: "+",
+      note: null,
     },
   ];
 
@@ -134,6 +139,7 @@ export default function ProjectStatsSlide({ data }: Props) {
               <AnimatedNumber value={stat.value} delay={700 + index * 150} prefix={stat.prefix} />
             </div>
             <div className="text-sm text-gray-500 mt-2 relative">{stat.label}</div>
+              {stat.note && <div className="text-xs text-gray-600 mt-1 relative">{stat.note}</div>}
           </motion.div>
         ))}
       </motion.div>

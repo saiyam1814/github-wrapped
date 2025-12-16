@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, GitFork, GitPullRequest, CircleDot, GitCommit, Users, TrendingUp, Info } from "lucide-react";
+import { Star, GitFork, GitPullRequest, CircleDot, GitCommit, Users, TrendingUp } from "lucide-react";
 import type { ProjectData } from "../page";
 import { useEffect, useState } from "react";
 
@@ -10,9 +10,9 @@ interface Props {
   onNext: () => void;
 }
 
-function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number }) {
+function AnimatedNumber({ value, delay = 0, prefix = "", suffix = "" }: { value: number; delay?: number; prefix?: string; suffix?: string }) {
   const [display, setDisplay] = useState(0);
-  const safeValue = typeof value === 'number' && !isNaN(value) && value >= 0 ? value : 0;
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -34,30 +34,59 @@ function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number })
     return () => clearTimeout(timer);
   }, [safeValue, delay]);
 
-  return <span>{display.toLocaleString()}</span>;
-}
-
-function formatLargeNumber(num: number): string {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-  return num.toLocaleString();
+  return <span>{prefix}{display.toLocaleString()}{suffix}</span>;
 }
 
 export default function ProjectStatsSlide({ data }: Props) {
   const { stats } = data;
 
-  // 2025-specific values
-  const starsGained2025 = stats?.stars?.gained2025 ?? 0;
-  const totalStars = stats?.stars?.total || 0;
+  // 2025-specific values only!
+  const starsGained2025 = stats?.stars?.gained2025 || 0;
   const forksGained2025 = stats?.forks?.gained2025 || 0;
   const prsCreated2025 = stats?.pullRequests?.created2025 || 0;
   const prsMerged2025 = stats?.pullRequests?.merged2025 || 0;
   const issuesCreated2025 = stats?.issues?.created2025 || 0;
   const commits2025 = stats?.commits?.total2025 || 0;
-  const contributorsTotal = stats?.contributors?.total2025 || stats?.contributors?.total || 0;
+  const contributorsTotal = stats?.contributors?.total || 0;
 
-  // Check if stars data is unavailable due to API limits (-1 means unavailable)
-  const starsUnavailable = starsGained2025 < 0;
+  // Calculate growth indicators
+  const totalStars = stats?.stars?.total || 0;
+  const starsGrowthPercent = totalStars > 0 ? Math.round((starsGained2025 / (totalStars - starsGained2025)) * 100) : 0;
+
+  const mainStats = [
+    { 
+      label: "Stars Gained", 
+      value: starsGained2025, 
+      icon: Star, 
+      color: "text-yellow-400", 
+      bg: "bg-yellow-500/10",
+      fill: true,
+      prefix: "+",
+    },
+    { 
+      label: "Forks Gained", 
+      value: forksGained2025, 
+      icon: GitFork, 
+      color: "text-emerald-400", 
+      bg: "bg-emerald-500/10",
+      fill: false,
+      prefix: "+",
+    },
+  ];
+
+  const activityStats = [
+    { label: "Contributors", value: contributorsTotal, icon: Users, color: "text-teal-400", bg: "bg-teal-500/10" },
+    { label: "Commits", value: commits2025, icon: GitCommit, color: "text-purple-400", bg: "bg-purple-500/10" },
+    { label: "PRs Merged", value: prsMerged2025, icon: GitPullRequest, color: "text-blue-400", bg: "bg-blue-500/10" },
+    { label: "Issues Opened", value: issuesCreated2025, icon: CircleDot, color: "text-amber-400", bg: "bg-amber-500/10" },
+  ];
+
+  // Adjust text size based on value length to prevent overflow
+  const getTextSize = (value: number) => {
+    if (value >= 10000) return "text-3xl md:text-4xl";
+    if (value >= 1000) return "text-4xl md:text-5xl";
+    return "text-5xl md:text-6xl";
+  };
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
@@ -73,101 +102,95 @@ export default function ProjectStatsSlide({ data }: Props) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="text-gray-500 mb-6"
+        className="text-sm text-gray-500 mb-8"
       >
         What changed this year
       </motion.p>
 
-      {/* Main Stats - Stars & Forks */}
-      <div className="grid grid-cols-2 gap-4 w-full max-w-md mb-6">
-        {/* Stars */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 }}
-          className="bg-yellow-500/10 rounded-2xl p-5 border border-yellow-500/20 text-center relative overflow-hidden"
-        >
-          <div className="absolute top-2 right-2">
-            <TrendingUp className="w-4 h-4 text-yellow-500/50" />
-          </div>
-          <Star className="w-8 h-8 text-yellow-400 mx-auto mb-2" fill="currentColor" />
-          {starsUnavailable ? (
-            <>
-              <div className="text-4xl md:text-5xl font-black text-yellow-400">
-                {formatLargeNumber(totalStars)}
-              </div>
-              <div className="text-sm text-gray-400 mt-1">Total Stars</div>
-              <div className="text-xs text-gray-500 mt-1 flex items-center justify-center gap-1">
-                <Info className="w-3 h-3" /> 2025 data unavailable
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-4xl md:text-5xl font-black text-yellow-400">
-                +<AnimatedNumber value={starsGained2025} delay={600} />
-              </div>
-              <div className="text-sm text-gray-400 mt-1">Stars Gained</div>
-            </>
-          )}
-        </motion.div>
-
-        {/* Forks */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.5 }}
-          className="bg-emerald-500/10 rounded-2xl p-5 border border-emerald-500/20 text-center relative overflow-hidden"
-        >
-          <div className="absolute top-2 right-2">
-            <TrendingUp className="w-4 h-4 text-emerald-500/50" />
-          </div>
-          <GitFork className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-          <div className="text-4xl md:text-5xl font-black text-emerald-400">
-            +{formatLargeNumber(forksGained2025)}
-          </div>
-          <div className="text-sm text-gray-400 mt-1">Forks Gained</div>
-        </motion.div>
-      </div>
-
-      {/* Secondary Stats */}
+      {/* Main Stats - Stars & Forks GAINED in 2025 */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-        className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-2xl"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.3 }}
+        className="grid grid-cols-2 gap-4 mb-8 w-full max-w-xl px-2"
       >
-        <div className="bg-cyan-500/10 rounded-xl p-4 border border-cyan-500/20 text-center">
-          <Users className="w-5 h-5 text-cyan-400 mx-auto mb-1" />
-          <div className="text-2xl font-bold text-cyan-400">{formatLargeNumber(contributorsTotal)}</div>
-          <div className="text-xs text-gray-500">Contributors</div>
-        </div>
-        <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20 text-center">
-          <GitCommit className="w-5 h-5 text-purple-400 mx-auto mb-1" />
-          <div className="text-2xl font-bold text-purple-400">{formatLargeNumber(commits2025)}</div>
-          <div className="text-xs text-gray-500">Commits</div>
-        </div>
-        <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20 text-center">
-          <GitPullRequest className="w-5 h-5 text-blue-400 mx-auto mb-1" />
-          <div className="text-2xl font-bold text-blue-400">{formatLargeNumber(prsMerged2025)}</div>
-          <div className="text-xs text-gray-500">PRs Merged</div>
-        </div>
-        <div className="bg-amber-500/10 rounded-xl p-4 border border-amber-500/20 text-center">
-          <CircleDot className="w-5 h-5 text-amber-400 mx-auto mb-1" />
-          <div className="text-2xl font-bold text-amber-400">{formatLargeNumber(issuesCreated2025)}</div>
-          <div className="text-xs text-gray-500">Issues Opened</div>
-        </div>
+        {mainStats.map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 + index * 0.15 }}
+            className={`${stat.bg} rounded-2xl p-5 md:p-6 border border-white/5 text-center relative overflow-hidden`}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+            <div className="absolute top-3 right-3">
+              <TrendingUp className={`w-4 h-4 ${stat.color} opacity-50`} />
+            </div>
+            <stat.icon 
+              className={`w-8 h-8 ${stat.color} mx-auto mb-3 relative`} 
+              fill={stat.fill ? "currentColor" : "none"}
+            />
+            <div className={`${getTextSize(stat.value)} font-black ${stat.color} relative leading-tight`}>
+              <AnimatedNumber value={stat.value} delay={700 + index * 150} prefix={stat.prefix} />
+            </div>
+            <div className="text-sm text-gray-500 mt-2 relative">{stat.label}</div>
+          </motion.div>
+        ))}
       </motion.div>
 
-      {/* Context */}
-      <motion.p
+      {/* Growth indicator - only show reasonable percentages */}
+      {starsGrowthPercent > 0 && starsGrowthPercent < 10000 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.9 }}
+          className="mb-8 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20"
+        >
+          <span className="text-yellow-400 font-semibold">
+            📈 {starsGrowthPercent}% star growth this year!
+          </span>
+        </motion.div>
+      )}
+
+      {/* 2025 Activity Stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-2xl px-2"
+      >
+        {activityStats.map((stat, index) => {
+          const textSize = stat.value >= 1000 ? "text-xl" : "text-2xl";
+          return (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 1.2 + index * 0.1 }}
+              className={`${stat.bg} rounded-xl p-3 md:p-4 border border-white/5 text-center`}
+            >
+              <stat.icon className={`w-5 h-5 ${stat.color} mx-auto mb-2`} />
+              <div className={`${textSize} font-bold ${stat.color}`}>
+                <AnimatedNumber value={stat.value} delay={1400 + index * 100} />
+              </div>
+              <div className="text-xs text-gray-500 mt-1">{stat.label}</div>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+
+      {/* Contributors tagline */}
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.2 }}
-        className="text-gray-500 text-sm mt-6 flex items-center gap-2"
+        transition={{ delay: 1.8 }}
+        className="mt-8 flex items-center gap-3"
       >
-        <Star className="w-4 h-4 text-yellow-500/50" />
-        {formatLargeNumber(contributorsTotal)} contributors building together
-      </motion.p>
+        <Star className="w-5 h-5 text-yellow-400" />
+        <span className="text-gray-400">
+          <span className="text-teal-400 font-bold">{contributorsTotal.toLocaleString()}</span> contributors building together
+        </span>
+      </motion.div>
     </div>
   );
 }

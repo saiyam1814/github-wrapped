@@ -97,18 +97,10 @@ async function fetchREST(endpoint: string, token: string, customHeaders?: Record
 async function getStarsGained2025(
   owner: string, 
   name: string, 
-  token: string, 
-  totalStars: number,
-  repoCreatedAt: string
+  token: string
 ): Promise<number> {
   try {
-    // If repo created in 2025, ALL stars are from 2025
-    const createdYear = new Date(repoCreatedAt).getFullYear();
-    if (createdYear === CURRENT_YEAR) {
-      return totalStars;
-    }
-
-    // For older repos, we need to count 2025 stars by iterating backwards
+    // Always iterate to count actual 2025 stars accurately
     let starsIn2025 = 0;
     const perPage = 100;
     
@@ -196,17 +188,10 @@ async function getStarsGained2025(
 async function getForksGained2025(
   owner: string, 
   name: string, 
-  token: string,
-  totalForks: number,
-  repoCreatedAt: string
+  token: string
 ): Promise<number> {
   try {
-    // If repo was created in 2025, ALL forks are from 2025
-    const createdYear = new Date(repoCreatedAt).getFullYear();
-    if (createdYear === CURRENT_YEAR) {
-      return totalForks;
-    }
-    
+    // Always iterate to count actual 2025 forks accurately
     let forksIn2025 = 0;
     let page = 1;
     const maxPages = 100; // Check up to 10k forks
@@ -644,8 +629,8 @@ export async function GET(request: NextRequest) {
       getMonthlyCommits(owner, name, token),
       getContributors(owner, name, token),      // all-time fallback
       getContributors2025(owner, name, token),  // 2025-active contributors
-      getStarsGained2025(owner, name, token, totalStars, repo.createdAt),
-      getForksGained2025(owner, name, token, repo.forkCount || 0, repo.createdAt),
+      getStarsGained2025(owner, name, token),
+      getForksGained2025(owner, name, token),
     ]);
     
     // Process languages

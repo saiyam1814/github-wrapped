@@ -154,17 +154,28 @@ function processUserData(user: any, languageData: any, year: number) {
     }
   });
 
-  // Current streak: count backwards from TODAY (not end of year)
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  for (let i = allDays.length - 1; i >= 0; i--) {
-    // Skip future days (haven't happened yet)
-    if (allDays[i].date > today) continue;
-    
-    if (allDays[i].contributionCount > 0) {
+  // Current streak: count backwards from most recent day with data
+  // Sort days by date to ensure chronological order
+  const sortedDays = [...allDays].sort((a, b) => a.date.localeCompare(b.date));
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Find the last day with actual data (today or before)
+  let startIdx = sortedDays.length - 1;
+  while (startIdx >= 0 && sortedDays[startIdx].date > today) {
+    startIdx--;
+  }
+  
+  // Count streak backwards, allowing for 1 gap day (API sync delay)
+  let gapsAllowed = 1;
+  for (let i = startIdx; i >= 0; i--) {
+    if (sortedDays[i].contributionCount > 0) {
       currentStreak++;
+      gapsAllowed = 1; // Reset gap allowance after finding a contribution
     } else {
-      // Allow 1 day gap (today might not be updated yet)
-      if (allDays[i].date === today) continue;
+      if (gapsAllowed > 0) {
+        gapsAllowed--;
+        continue; // Allow one gap (today might not be synced)
+      }
       break;
     }
   }

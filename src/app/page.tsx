@@ -5,6 +5,45 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Github, Search, User, FolderGit2, Sparkles, Shield } from "lucide-react";
 
+// Parse GitHub URLs and extract username or owner/repo
+function parseGitHubInput(input: string, mode: "user" | "project"): { success: boolean; value: string; error?: string } {
+  const trimmed = input.trim();
+  
+  // Try to parse as URL
+  let path = trimmed;
+  
+  // Handle various URL formats
+  if (trimmed.includes("github.com")) {
+    // Extract path after github.com
+    const match = trimmed.match(/github\.com\/([^?\s#]+)/i);
+    if (match) {
+      path = match[1];
+    }
+  }
+  
+  // Remove trailing slashes and .git suffix
+  path = path.replace(/\/+$/, "").replace(/\.git$/, "");
+  
+  // Split into parts
+  const parts = path.split("/").filter(Boolean);
+  
+  if (mode === "user") {
+    // For user mode, we just need the username (first part)
+    if (parts.length >= 1) {
+      return { success: true, value: parts[0] };
+    }
+    return { success: false, value: "", error: "Please enter a valid GitHub username" };
+  } else {
+    // For project mode, we need owner/repo
+    if (parts.length >= 2) {
+      return { success: true, value: `${parts[0]}/${parts[1]}` };
+    } else if (parts.length === 1) {
+      return { success: false, value: "", error: "Please enter in format: owner/repo" };
+    }
+    return { success: false, value: "", error: "Please enter a valid repository (owner/repo)" };
+  }
+}
+
 export default function Home() {
   const router = useRouter();
   const [mode, setMode] = useState<"user" | "project">("user");
@@ -20,9 +59,9 @@ export default function Home() {
   const getPlaceholder = () => {
     switch (mode) {
       case "user":
-        return "Enter GitHub username (e.g., saiyam1814)";
+        return "Username or GitHub URL";
       case "project":
-        return "Enter repo (e.g., loft-sh/vcluster)";
+        return "owner/repo or GitHub URL";
       default:
         return "Enter identifier";
     }
@@ -36,16 +75,19 @@ export default function Home() {
     setError(null);
 
     try {
+      const parsed = parseGitHubInput(inputVal, mode);
+      
+      if (!parsed.success) {
+        setError(parsed.error || "Invalid input");
+        setLoading(false);
+        return;
+      }
+
       if (mode === "user") {
-        router.push(`/wrapped/${encodeURIComponent(inputVal.trim())}`);
+        router.push(`/wrapped/${encodeURIComponent(parsed.value)}`);
       } else {
-        const parts = inputVal.trim().split("/");
-        if (parts.length >= 2) {
-          router.push(`/project/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}`);
-        } else {
-          setError("Please enter in format: owner/repo");
-          setLoading(false);
-        }
+        const [owner, repo] = parsed.value.split("/");
+        router.push(`/project/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
       }
     } catch (err) {
       setError("Something went wrong");

@@ -406,10 +406,10 @@ export default function SummarySlide({ data, onNavigateToSlide, totalSlides = 8 
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
+        transition={{ delay: 1.2 }}
         className="mt-4 text-gray-500 text-center text-xs max-w-sm"
       >
-        💡 <span className="text-purple-400">All Slides</span> generates 8 carousel images
+        💡 <span className="text-purple-400">All Slides</span> generates 8 carousel images • <span className="text-rose-400">Record Video</span> captures the full animation
       </motion.p>
     </div>
   );

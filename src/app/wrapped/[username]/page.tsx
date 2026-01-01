@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, Pause, Play, Home } from "lucide-react";
@@ -16,6 +16,7 @@ import ImpactSlide from "./slides/ImpactSlide";
 import PersonalitySlide from "./slides/PersonalitySlide";
 import SummarySlide from "./slides/SummarySlide";
 import AudioPlayer from "@/components/AudioPlayer";
+import VideoRecorder from "@/components/VideoRecorder";
 
 import { generateDemoData, type DeveloperData } from "./utils";
 
@@ -31,6 +32,8 @@ export default function WrappedPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isRecordingMode, setIsRecordingMode] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const slides = [
     { component: IntroSlide, duration: 6000 },
@@ -97,9 +100,36 @@ export default function WrappedPage() {
     setProgress(0);
   }, []);
 
-  // Auto-advance slides
+  // Recording mode handlers
+  const handleStartRecording = useCallback(() => {
+    setIsRecordingMode(true);
+    setCurrentSlide(0);
+    setProgress(0);
+    setIsPaused(false);
+  }, []);
+
+  const handleStopRecording = useCallback(() => {
+    setIsRecordingMode(false);
+  }, []);
+
+  // Auto-advance slides (handles both normal and recording mode)
   useEffect(() => {
-    if (isPaused || currentSlide >= slides.length - 1 || currentDuration === 0 || !data) {
+    // Get the actual duration for current slide
+    const slideDuration = slides[currentSlide]?.duration || 0;
+    const isLastSlide = currentSlide >= slides.length - 1;
+    
+    // In recording mode, give summary slide a duration too
+    const effectiveDuration = isRecordingMode && isLastSlide 
+      ? 5000 
+      : slideDuration;
+
+    // Don't auto-advance if paused (unless recording), or no duration, or no data
+    if ((isPaused && !isRecordingMode) || effectiveDuration === 0 || !data) {
+      return;
+    }
+
+    // Don't auto-advance past last slide unless recording
+    if (isLastSlide && !isRecordingMode) {
       return;
     }
 
@@ -107,16 +137,18 @@ export default function WrappedPage() {
     
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const newProgress = Math.min((elapsed / currentDuration) * 100, 100);
+      const newProgress = Math.min((elapsed / effectiveDuration) * 100, 100);
       setProgress(newProgress);
 
-      if (elapsed >= currentDuration) {
-        handleNext();
+      if (elapsed >= effectiveDuration) {
+        if (currentSlide < slides.length - 1) {
+          handleNext();
+        }
       }
     }, 50);
 
     return () => clearInterval(interval);
-  }, [currentSlide, isPaused, currentDuration, handleNext, data, slides.length]);
+  }, [currentSlide, isPaused, handleNext, data, slides, isRecordingMode]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -176,8 +208,21 @@ export default function WrappedPage() {
   const CurrentSlideComponent = slides[currentSlide].component;
   const isSummarySlide = currentSlide === slides.length - 1;
 
+  const slideDurations = slides.map(s => s.duration || 5000);
+
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-mesh">
+    <div 
+      ref={containerRef}
+      className="min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-mesh"
+    >
+      {/* Recording indicator */}
+      {isRecordingMode && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 border border-red-500/50">
+          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-red-400 text-sm font-medium">Recording</span>
+        </div>
+      )}
+
       {/* Background gradients - Teal/Emerald */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-gradient-radial from-emerald-900/20 to-transparent" />
@@ -186,12 +231,14 @@ export default function WrappedPage() {
 
       {/* Top Controls */}
       <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
-        <button
-          onClick={() => setIsPaused(prev => !prev)}
-          className="p-3 rounded-full bg-white/5 hover:bg-white/10 border border-emerald-500/20 transition-all"
-        >
-          {isPaused ? <Play className="w-5 h-5 text-white" /> : <Pause className="w-5 h-5 text-white" />}
-        </button>
+        {!isRecordingMode && (
+          <button
+            onClick={() => setIsPaused(prev => !prev)}
+            className="p-3 rounded-full bg-white/5 hover:bg-white/10 border border-emerald-500/20 transition-all"
+          >
+            {isPaused ? <Play className="w-5 h-5 text-white" /> : <Pause className="w-5 h-5 text-white" />}
+          </button>
+        )}
       </div>
 
       {/* Home Link */}
@@ -236,7 +283,7 @@ export default function WrappedPage() {
                 onNext={handleNext} 
                 onNavigateToSlide={handleNavigateToSlide}
                 totalSlides={slides.length}
-              />
+                />
             ) : (
               <CurrentSlideComponent data={data} onNext={handleNext} />
             )}
@@ -291,6 +338,15 @@ export default function WrappedPage() {
       <div className="absolute bottom-4 left-4 text-xs text-gray-600">
         Use ← → arrows to navigate
       </div>
+
+      {/* Video Recorder */}
+      <VideoRecorder
+        containerRef={containerRef}
+        totalSlides={slides.length}
+        slideDurations={slideDurations}
+        goToSlide={handleNavigateToSlide}
+        showButton={isSummarySlide}
+      />
 
       {/* Lofi Music Player */}
       <AudioPlayer />

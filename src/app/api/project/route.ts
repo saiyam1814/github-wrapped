@@ -245,10 +245,20 @@ async function getForksGained2025(
     const maxPages = 100; // Check up to 10k forks
     
     while (page <= maxPages) {
-      const data = await fetchREST(
-        `/repos/${owner}/${name}/forks?sort=newest&per_page=100&page=${page}`,
-        token
+      // Use direct fetch for better control
+      const response = await fetch(
+        `${GITHUB_REST_API}/repos/${owner}/${name}/forks?sort=newest&per_page=100&page=${page}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
       );
+      
+      if (!response.ok) break;
+      
+      const data = await response.json();
       
       if (!Array.isArray(data) || data.length === 0) break;
       
@@ -259,10 +269,12 @@ async function getForksGained2025(
           const forkYear = new Date(fork.created_at).getFullYear();
           if (forkYear === CURRENT_YEAR) {
             forksIn2025++;
-          } else {
+          } else if (forkYear < CURRENT_YEAR) {
+            // Only stop when we find a fork from BEFORE 2025
             foundOlderFork = true;
             break; // Since sorted by newest, all remaining will be older
           }
+          // If forkYear > CURRENT_YEAR (e.g., 2026 forks), skip and continue
         }
       }
       
